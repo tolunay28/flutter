@@ -16,19 +16,18 @@ class PageAccueil extends StatelessWidget {
         children: [
           // ANIMATION DE FOND PLEIN ÉCRAN
           Positioned.fill(
-            child: Opacity(
-              opacity: 0.35, // pour garder le texte lisible
-              child: Lottie.asset(
-                'assets/animations/background.json',
-                fit: BoxFit
-                    .contain, // permet d'afficher toute l'animation quelque soit la taille de l'écran
-                repeat: true,
-              ),
+            // utiliser dans stack pour dire au widget de prendre toute la place dispo dans le parent (ici tout l'écran)
+            child: Lottie.asset(
+              'assets/animations/background.json',
+              fit: BoxFit
+                  .contain, // permet d'afficher toute l'animation quelque soit la taille de l'écran
+              repeat: true,
             ),
           ),
 
           // CONTENU PAR-DESSUS (protégé par SafeArea)
           SafeArea(
+            // padding automatique pour eviter que les textes/image ... soit pas cachés
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -40,19 +39,6 @@ class PageAccueil extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment
                       .center, // centre horizontalement dans un column
                   children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: cs.primaryContainer,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Icon(
-                        Icons.explore,
-                        color: cs.onPrimaryContainer,
-                        size: 44,
-                      ),
-                    ),
                     const SizedBox(height: 24),
 
                     Text(
@@ -89,7 +75,7 @@ class PageAccueil extends StatelessWidget {
                     ),
 
                     SizedBox(
-                      width: double.infinity,
+                      width: 150,
                       child: FilledButton.icon(
                         icon: const Icon(Icons.arrow_forward),
                         label: const Text('Commencer'),

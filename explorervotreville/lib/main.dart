@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'pages/main_page.dart';
 import 'pages/page_accueil.dart';
+import 'pages/page_principale.dart';
 
 void main() {
   runApp(const ExplorezVotreVilleApp());
