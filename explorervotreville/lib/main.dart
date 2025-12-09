@@ -1,3 +1,4 @@
+import 'package:explorervotreville/pages/page_detail.dart';
 import 'package:flutter/material.dart';
 
 import 'pages/page_accueil.dart';
@@ -18,9 +19,21 @@ class ExplorezVotreVilleApp extends StatelessWidget {
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
       initialRoute: '/',
       routes: {
+        // uniquement les pages statiques (sans parametres)
         '/': (_) => const PageAccueil(),
-        '/main': (_) => const MainPage(),
+        '/page_principale': (_) => const PagePrincipale(),
+      },
+
+      onGenerateRoute: (settings) {
+        // pour utiliser pushNamed avec parametre car il ne gere pas tout seul les parametres
+        if (settings.name == '/page_detail') {
+          final lieu = settings.arguments as Lieu;
+          return MaterialPageRoute(builder: (_) => PageDetail(lieu: lieu));
+        }
+        return null;
       },
     );
   }
 }
+
+// modif faites au niveau des noms + generateroute

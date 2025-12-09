@@ -17,14 +17,15 @@ class Lieu {
   });
 }
 
-class MainPage extends StatefulWidget {
-  const MainPage({super.key});
+// modif pageprincipale avant c'était mainpage
+class PagePrincipale extends StatefulWidget {
+  const PagePrincipale({super.key});
 
   @override
-  State<MainPage> createState() => _MainPageState();
+  State<PagePrincipale> createState() => _PagePrincipaleState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _PagePrincipaleState extends State<PagePrincipale> {
   final TextEditingController _villeController = TextEditingController(
     text: 'Giresun',
   );
@@ -408,7 +409,7 @@ class _MainPageState extends State<MainPage> {
                                 )
                               else if (_meteo != null)
                                 Text(
-                                  'Temp : ${_meteo!.temp.round()}°C '
+                                  'Temps : ${_meteo!.temp.round()}°C '
                                   '(min ${_meteo!.tempMin.round()}°C, max ${_meteo!.tempMax.round()}°C)\n'
                                   'Temps : ${_meteo!.description}',
                                   style: Theme.of(context).textTheme.bodyMedium,
@@ -493,56 +494,69 @@ class _LieuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            child: lieu.imageUrl != null
-                ? Image.network(
-                    lieu.imageUrl!,
-                    height: 160,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    height: 160,
-                    width: double.infinity,
-                    color: cs.surfaceContainerHighest,
-                    child: const Icon(Icons.photo, size: 48),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        lieu.titre,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        lieu.categorie,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right, color: cs.outline),
-              ],
+    return InkWell(
+      // rend la card cliquable
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          '/page_detail', // route nommée
+          arguments: lieu, // on passe l'objet Lieu à la page détail
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Card(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 3,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: lieu.imageUrl != null
+                  ? Image.network(
+                      lieu.imageUrl!,
+                      height: 160,
+                      width: double.infinity,
+                      fit: BoxFit.contain, // a mettre
+                    )
+                  : Container(
+                      height: 160,
+                      width: double.infinity,
+                      color: cs.surfaceContainerHighest,
+                      child: const Icon(Icons.photo, size: 48),
+                    ),
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          lieu.titre,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          lieu.categorie,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right, color: cs.outline),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

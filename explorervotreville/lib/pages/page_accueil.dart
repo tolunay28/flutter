@@ -81,7 +81,7 @@ class PageAccueil extends StatelessWidget {
                         label: const Text('Commencer'),
                         onPressed: () => Navigator.pushReplacementNamed(
                           context,
-                          '/main',
+                          '/page_principale', // modif juste ça normalement ça marche sans soucis
                         ), // pas de bouton back qui s'affiche avec pushReplacement
                         style: ButtonStyle(
                           padding: WidgetStateProperty.all(
