@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../models/lieu.dart';
 import 'page_principale.dart';
 
 class PageDetail extends StatefulWidget {

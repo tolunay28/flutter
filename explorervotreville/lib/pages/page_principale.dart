@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
+import '../models/lieu.dart';
 
 import '../services/villes_meteo_api.dart';
+import '../services/map_api.dart';
 
-/// Lieu enregistré localement
-class Lieu {
-  final String titre;
-  final String categorie;
-  final String cleVille; // ex : "Paris,FR"
-  final String? imageUrl;
 
-  Lieu({
-    required this.titre,
-    required this.categorie,
-    required this.cleVille,
-    this.imageUrl,
-  });
-}
 
 // modif pageprincipale avant c'était mainpage
 class PagePrincipale extends StatefulWidget {
@@ -30,6 +22,15 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     text: 'Giresun',
   );
   final VillesMeteoApi _api = VillesMeteoApi();
+  final Map_api _map_api = Map_api();
+  final TextEditingController _cityController = TextEditingController();
+  final MapController _mapController = MapController();
+
+  LatLng _center =
+      const LatLng(48.8566, 2.3522); // Coordonnées par défaut : Paris
+  String _latitude = '48.8566';
+  String _longitude = '2.3522';
+
 
   VilleResultat? _villeSelectionnee;
   MeteoActuelle? _meteo;
@@ -48,7 +49,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   @override
   void initState() {
     super.initState();
-    _rechercherVille(forceNom: _villeController.text); // charge Paris au début
+    _getInitLocation();
   }
 
   @override
@@ -126,6 +127,18 @@ class _PagePrincipaleState extends State<PagePrincipale> {
         return;
       }
 
+      //On va chercher les coordonnées via Map_api
+      final coords = await _map_api.getCoordinatesFromCity(nomSaisi);
+      
+      if (coords != null) {
+        setState(() {
+          _center = coords;
+        });
+        _mapController.move(_center, 12.0);
+      } else {
+         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Coordonnées introuvables.')));
+      }
+
       if (resultats.length == 1) {
         _choisirVille(resultats.first);
       } else {
@@ -201,6 +214,28 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       ).showSnackBar(SnackBar(content: Text('Erreur météo : $e')));
     }
   }
+
+
+  Future<void> _getInitLocation() async {
+        try {
+          // Une seule ligne pour tout faire
+          final position = await _map_api.getCurrentPosition();
+          
+          if (position != null) {
+            setState(() {
+              _center = position;
+              // Plus besoin de gérer _latitude/_longitude en String séparés car LatLng est partout
+            });
+            _mapController.move(_center, 12.0);
+          }
+        } catch (e) {
+          if(!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString())), // Affiche l'erreur du service
+          );
+        }
+      }
+
 
   // =========================
   // AJOUT DE LIEU (via FloatingActionButton)
@@ -368,6 +403,40 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                 ),
 
               const SizedBox(height: 16),
+
+              
+              Expanded(
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _center,
+                    initialZoom: 10.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                      subdomains: const ['a', 'b', 'c', 'd'],
+                      // attributionBuilder: (_) {
+                      //   return Text("© OpenStreetMap contributors | © Carto");
+                      // },
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: _center,
+                          child: const Icon(
+                            Icons.location_on,
+                            color: Colors.red,
+                            size: 40,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
 
               // Ville + météo
               if (ville != null)
