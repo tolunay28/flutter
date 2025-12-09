@@ -88,6 +88,7 @@ class _PageDetailState extends State<PageDetail>
           child: SlideTransition(
             position: _slideAnimation,
             child: SingleChildScrollView(
+              // permet de scroller le widget
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, // met a gauche
@@ -217,7 +218,7 @@ class _PageDetailState extends State<PageDetail>
 
                   const SizedBox(height: 24),
 
-                  // commentaires LIRE A PARTIR D ICI LA SUITE
+                  // commentaires
                   Text(
                     'Commentaires',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -233,8 +234,10 @@ class _PageDetailState extends State<PageDetail>
                     )
                   else
                     ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap:
+                          true, // prend seulement la taille(hauteur) nécessaire
+                      physics:
+                          const NeverScrollableScrollPhysics(), // car dans SingleChildScrollView
                       itemCount: _commentaires.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
@@ -246,7 +249,7 @@ class _PageDetailState extends State<PageDetail>
 
                   const SizedBox(height: 24),
 
-                  // AJOUT COMMENTAIRE
+                  // ajouter commentaire
                   Text(
                     'Ajouter un commentaire',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -268,22 +271,25 @@ class _PageDetailState extends State<PageDetail>
                             controller: _commentController,
                             maxLines: 3,
                             decoration: const InputDecoration(
-                              hintText: 'Votre commentaire…',
-                              border: OutlineInputBorder(),
+                              hintText:
+                                  'Votre commentaire…', // texte grisé avant une saisie
+                              border:
+                                  OutlineInputBorder(), // cadre autour du champs
                             ),
                           ),
 
                           const SizedBox(height: 12),
 
                           Text(
-                            'Note : ${_noteCourante.toStringAsFixed(1)}',
+                            'Note : ${_noteCourante.toStringAsFixed(1)}', // (avec une seule décimale)
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
 
                           Slider(
                             min: 0,
                             max: 5,
-                            divisions: 10,
+                            divisions:
+                                10, // permet d'obtenir le cran des notes (max / div) = 0.5
                             value: _noteCourante,
                             onChanged: (v) {
                               setState(() => _noteCourante = v);
@@ -359,9 +365,9 @@ class _CommentaireCard extends StatelessWidget {
                       const Spacer(),
                       Text(
                         _formatDate(commentaire.date),
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: cs.outline),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: cs.outline,
+                        ), // outline = grisé
                       ),
                     ],
                   ),
@@ -382,13 +388,11 @@ class _CommentaireCard extends StatelessWidget {
   }
 
   String _formatDate(DateTime d) {
-    // format simple JJ/MM
+    // format simple JJ/MM/AA  ,padleft ajoute 0 si le jour est < 10
     final day = d.day.toString().padLeft(2, '0');
     final month = d.month.toString().padLeft(2, '0');
-    return '$day/$month';
+    final year = d.year.toString().padLeft(2, '0');
+
+    return '$day/$month/$year';
   }
 }
-
-
-// todo mettre le bouton "publier" visible meme quand l'écran est a la moitié ------ pareil pour le bouton ajouter lieu dans la page principale
-// cf si possibilté de gérer l'image en plein écran 
