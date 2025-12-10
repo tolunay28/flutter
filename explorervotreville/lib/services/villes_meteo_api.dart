@@ -45,7 +45,7 @@ class MeteoActuelle {
 
 /// Service qui appelle OpenWeatherMap pour les villes et la météo
 class VillesMeteoApi {
-  static const String _apiKey = '5cbb00d4d5cacab55abc01536c30f740';
+  static const String _apiKey = String.fromEnvironment('OPENWEATHER_API_KEY');
 
   final http.Client _client;
 

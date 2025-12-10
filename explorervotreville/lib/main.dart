@@ -1,10 +1,9 @@
 import 'package:explorervotreville/pages/page_detail.dart';
 import 'package:flutter/material.dart';
 
+import 'models/lieu.dart';
 import 'pages/page_accueil.dart';
 import 'pages/page_principale.dart';
-
-import 'models/lieu.dart';
 
 void main() {
   runApp(const ExplorezVotreVilleApp());
@@ -37,5 +36,3 @@ class ExplorezVotreVilleApp extends StatelessWidget {
     );
   }
 }
-
-// modif faites au niveau des noms + generateroute

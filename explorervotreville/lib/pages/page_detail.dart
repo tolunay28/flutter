@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../models/lieu.dart';
-import 'page_principale.dart';
 
 class PageDetail extends StatefulWidget {
   final Lieu lieu;
@@ -22,12 +24,23 @@ class _PageDetailState extends State<PageDetail>
   double _noteCourante = 3.0;
   double _noteMoyenne = 3.0;
 
+  final MapController _mapController = MapController();
+  late final LatLng _center;
+
   final List<_Commentaire> _commentaires = [];
 
   @override
   void initState() {
     super.initState();
 
+    final lieu = widget.lieu; // widget permet de recuperer le lieu en param
+
+    if (lieu.latitude != null && lieu.longitude != null) {
+      _center = LatLng(lieu.latitude!, lieu.longitude!);
+    } else {
+      // Fallback : par exemple le centre de la ville ou une valeur par défaut
+      _center = const LatLng(48.8566, 2.3522); // Paris ou autre
+    }
     // Animation explicite fade + slide
     _controller = AnimationController(
       vsync: this,
@@ -171,6 +184,23 @@ class _PageDetailState extends State<PageDetail>
                   const SizedBox(height: 16),
 
                   // description
+                  if (lieu.description != null || lieu.adresse != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.location_on, size: 18),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            lieu.description ??
+                                lieu.adresse!, // description > adresse
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   Text(
                     'Description',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -186,36 +216,39 @@ class _PageDetailState extends State<PageDetail>
                   const SizedBox(height: 16),
 
                   //  carte
-                  Text(
-                    'Localisation (carte à venir)',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: cs.outlineVariant),
-                    ),
-                    child: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize
-                            .min, // taille réduit au minimum nécéssaire
-                        children: [
-                          Icon(Icons.map, color: cs.primary),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Carte à venir…',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
+                  SizedBox(
+                    height: 200,
+                    child: FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _center,
+                        initialZoom: 15.0,
                       ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                          retinaMode: true,
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                          // attributionBuilder: (_) {
+                          //   return Text("© OpenStreetMap contributors | © Carto");
+                          // },
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _center,
+                              child: const Icon(
+                                Icons.location_on,
+                                color: Colors.red,
+                                size: 40,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-
                   const SizedBox(height: 24),
 
                   // commentaires
