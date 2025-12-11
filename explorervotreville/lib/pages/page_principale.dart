@@ -59,9 +59,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     return _lieuxParVille[cle] ?? [];
   }
 
-  // =========================
-  // AUTOCOMPLÉTION A PARTIR DE 3 LETTRES
-  // =========================
+  // autocomplétion à partir de 3 lettres
   Future<void> _mettreAJourSuggestions(String input) async {
     final q = input.trim();
     if (q.length < 3) {
@@ -96,9 +94,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     }
   }
 
-  // =========================
-  // RECHERCHE "VALIDÉE" (bouton recherche ou submit)
-  // =========================
+  // bouton recherche ou submit
   Future<void> _rechercherVille({String? forceNom}) async {
     final nomSaisi = forceNom ?? _villeController.text.trim();
     if (nomSaisi.isEmpty) return;
@@ -221,9 +217,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     }
   }
 
-  // =========================
-  // AJOUT DE LIEU (via FloatingActionButton)
-  // =========================
+  // ajout de lieu (via FloatingActionButton)
   void _ouvrirDialogAjoutLieu() {
     if (_villeSelectionnee == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -243,55 +237,60 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       builder: (ctx) {
         return AlertDialog(
           title: const Text('Ajouter un lieu'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titreController,
-                  decoration: const InputDecoration(
-                    labelText: 'Titre du lieu',
-                    prefixIcon: Icon(Icons.place),
+          content: SizedBox(
+            width: 500,
+            height: 550,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titreController,
+                    decoration: const InputDecoration(
+                      labelText: 'Titre du lieu',
+                      prefixIcon: Icon(Icons.place),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: categorieController,
-                  decoration: const InputDecoration(
-                    labelText: 'Catégorie (restaurant, parc...)',
-                    prefixIcon: Icon(Icons.category),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: categorieController,
+                    decoration: const InputDecoration(
+                      labelText: 'Catégorie (restaurant, parc...)',
+                      prefixIcon: Icon(Icons.category),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: imageController,
-                  decoration: const InputDecoration(
-                    labelText: 'URL de l’image (optionnel)',
-                    prefixIcon: Icon(Icons.image),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: imageController,
+                    decoration: const InputDecoration(
+                      labelText: 'URL de l’image (optionnel)',
+                      prefixIcon: Icon(Icons.image),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: adresseController,
-                  decoration: const InputDecoration(
-                    labelText: 'Adresse / Nom du lieu',
-                    prefixIcon: Icon(Icons.location_on),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: adresseController,
+                    decoration: const InputDecoration(
+                      labelText:
+                          'Adresse / Nom du lieu (optionnel pour les lieux connus)',
+                      prefixIcon: Icon(Icons.location_on),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Description du lieu (optionnel)',
-                    prefixIcon: Icon(Icons.description),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description du lieu (optionnel)',
+                      prefixIcon: Icon(Icons.description),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Ville : ${_villeSelectionnee!.nom} (${_villeSelectionnee!.pays})',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    'Ville : ${_villeSelectionnee!.nom} (${_villeSelectionnee!.pays})',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -313,10 +312,20 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                 double? lon;
                 String? adresseComplete;
 
+                //  On choisit quoi envoyer à Nominatim :
+                //  - si l'utilisateur a mis une adresse : on la prend
+                //  - sinon : on essaye avec le titre du lieu (pour les lieux connus aucun problème)
+                String? requetePourNominatim;
                 if (adresseSaisie.isNotEmpty) {
+                  requetePourNominatim = adresseSaisie;
+                } else {
+                  requetePourNominatim = titre;
+                }
+
+                if (requetePourNominatim.isNotEmpty) {
                   final resultat = await _map_api.chercherAdresse(
-                    adresseSaisie,
-                    _villeSelectionnee!, // on sait qu'il est pas null
+                    requetePourNominatim,
+                    _villeSelectionnee!, // on sait qu'il n'est pas null
                   );
 
                   if (resultat != null) {
@@ -327,8 +336,11 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   } else {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Adresse introuvable avec OpenStreetMap'),
+                      SnackBar(
+                        content: Text(
+                          'Adresse introuvable pour "$requetePourNominatim". '
+                          'Le lieu sera ajouté sans position précise.',
+                        ),
                       ),
                     );
                   }
@@ -365,9 +377,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     );
   }
 
-  // =========================
-  // BUILD
-  // =========================
+  // build
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;

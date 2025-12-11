@@ -29,18 +29,22 @@ class _PageDetailState extends State<PageDetail>
 
   final List<_Commentaire> _commentaires = [];
 
+  String? _adresseActuelle;
+
   @override
   void initState() {
     super.initState();
 
     final lieu = widget.lieu; // widget permet de recuperer le lieu en param
+    _adresseActuelle = lieu.adresse;
 
     if (lieu.latitude != null && lieu.longitude != null) {
       _center = LatLng(lieu.latitude!, lieu.longitude!);
     } else {
-      // Fallback : par exemple le centre de la ville ou une valeur par défaut
-      _center = const LatLng(48.8566, 2.3522); // Paris ou autre
+      // Fallback : le centre de la ville ou une valeur par défaut
+      _center = const LatLng(48.8566, 2.3522); // Paris
     }
+
     // Animation explicite fade + slide
     _controller = AnimationController(
       vsync: this,
@@ -86,6 +90,58 @@ class _PageDetailState extends State<PageDetail>
       _commentController.clear();
       _noteCourante = _noteMoyenne;
     });
+  }
+
+  void _modifierAdresse() async {
+    // on part de _adresseActuelle (si déjà modifiée)
+    final controller = TextEditingController(text: _adresseActuelle ?? '');
+
+    final nouvelleAdresse = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Modifier l'adresse du lieu"),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              labelText: 'Adresse ou nom du lieu',
+              prefixIcon: Icon(Icons.location_on),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(ctx).pop(controller.text.trim());
+              },
+              child: const Text('Valider'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (nouvelleAdresse == null || nouvelleAdresse.isEmpty) return;
+
+    if (!mounted) return;
+
+    //on met à jour l’adresse affichée dans la page
+    setState(() {
+      _adresseActuelle = nouvelleAdresse;
+      // si ton modèle Lieu a des champs non-final, tu pourrais aussi faire :
+      // widget.lieu.adresse = nouvelleAdresse;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Adresse mise à jour (localement) : $nouvelleAdresse\n"
+          "(à persister + géolocaliser plus tard).",
+        ),
+      ),
+    );
   }
 
   @override
@@ -184,7 +240,8 @@ class _PageDetailState extends State<PageDetail>
                   const SizedBox(height: 16),
 
                   // adresse
-                  if (lieu.adresse != null) ...[
+                  if (_adresseActuelle != null &&
+                      _adresseActuelle!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,39 +275,87 @@ class _PageDetailState extends State<PageDetail>
                   const SizedBox(height: 16),
 
                   //  carte
-                  SizedBox(
-                    height: 200,
-                    child: FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: _center,
-                        initialZoom: 15.0,
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate:
-                              "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                          retinaMode: true,
-                          subdomains: const ['a', 'b', 'c', 'd'],
-                          // attributionBuilder: (_) {
-                          //   return Text("© OpenStreetMap contributors | © Carto");
-                          // },
+                  if (lieu.latitude != null && lieu.longitude != null) ...[
+                    SizedBox(
+                      height: 200,
+                      child: FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: _center,
+                          initialZoom: 15.0,
                         ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _center,
-                              child: const Icon(
-                                Icons.location_on,
-                                color: Colors.red,
-                                size: 40,
+                        children: [
+                          TileLayer(
+                            urlTemplate:
+                                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                            retinaMode: true,
+                            subdomains: const ['a', 'b', 'c', 'd'],
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: _center,
+                                child: const Icon(
+                                  Icons.location_on,
+                                  color: Colors.red,
+                                  size: 40,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    Container(
+                      height: 140,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.location_off,
+                            size: 32,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Position inconnue pour ce lieu",
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Aucune adresse ou coordonnées n'ont été renseignées.",
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: _modifierAdresse,
+                                    icon: const Icon(Icons.edit_location_alt),
+                                    label: const Text("Modifier l'adresse"),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // commentaires
