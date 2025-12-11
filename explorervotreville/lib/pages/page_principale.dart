@@ -269,15 +269,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   ),
                   const SizedBox(height: 8),
                   TextField(
-                    controller: adresseController,
-                    decoration: const InputDecoration(
-                      labelText:
-                          'Adresse / Nom du lieu (optionnel pour les lieux connus)',
-                      prefixIcon: Icon(Icons.location_on),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
                     controller: descriptionController,
                     decoration: const InputDecoration(
                       labelText: 'Description du lieu (optionnel)',

@@ -1,3 +1,5 @@
+import 'package:explorervotreville/services/map_api.dart';
+import 'package:explorervotreville/services/villes_meteo_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -25,11 +27,13 @@ class _PageDetailState extends State<PageDetail>
   double _noteMoyenne = 3.0;
 
   final MapController _mapController = MapController();
-  late final LatLng _center;
+  late LatLng _center;
+  bool _positionConnue = false;
 
   final List<_Commentaire> _commentaires = [];
 
   String? _adresseActuelle;
+  final Map_api _mapApi = Map_api();
 
   @override
   void initState() {
@@ -40,9 +44,13 @@ class _PageDetailState extends State<PageDetail>
 
     if (lieu.latitude != null && lieu.longitude != null) {
       _center = LatLng(lieu.latitude!, lieu.longitude!);
+      _positionConnue = true;
     } else {
-      // Fallback : le centre de la ville ou une valeur par défaut
-      _center = const LatLng(48.8566, 2.3522); // Paris
+      _center = const LatLng(
+        48.8566,
+        2.3522,
+      ); // valeur par défaut pour initialiser (Paris) (ne sera pas affichée tant que _positionConnue = false), juste pour eviter de crash
+      _positionConnue = false;
     }
 
     // Animation explicite fade + slide
@@ -93,10 +101,12 @@ class _PageDetailState extends State<PageDetail>
   }
 
   void _modifierAdresse() async {
-    // on part de _adresseActuelle (si déjà modifiée)
+    final lieu = widget.lieu;
+
+    // On part de l’adresse actuelle si elle existe
     final controller = TextEditingController(text: _adresseActuelle ?? '');
 
-    final nouvelleAdresse = await showDialog<String>(
+    final saisie = await showDialog<String>(
       context: context,
       builder: (ctx) {
         return AlertDialog(
@@ -104,7 +114,7 @@ class _PageDetailState extends State<PageDetail>
           content: TextField(
             controller: controller,
             decoration: const InputDecoration(
-              labelText: 'Adresse ou nom du lieu',
+              labelText: 'Adresse du lieu',
               prefixIcon: Icon(Icons.location_on),
             ),
           ),
@@ -124,23 +134,43 @@ class _PageDetailState extends State<PageDetail>
       },
     );
 
-    if (nouvelleAdresse == null || nouvelleAdresse.isEmpty) return;
+    if (saisie == null || saisie.isEmpty) return;
+
+    // On reconstruit une "ville" pour la requête (ex : Paris,FR) car dans pagedetail on a pas de ville juste le lieu
+    final ville = _reconstruireVilleDepuisLieu(lieu);
+
+    // Appel à Nominatim via Map_api
+    final resultat = await _mapApi.chercherAdresse(saisie, ville);
 
     if (!mounted) return;
 
-    //on met à jour l’adresse affichée dans la page
-    setState(() {
-      _adresseActuelle = nouvelleAdresse;
-      // si ton modèle Lieu a des champs non-final, tu pourrais aussi faire :
-      // widget.lieu.adresse = nouvelleAdresse;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "Adresse mise à jour (localement) : $nouvelleAdresse\n"
-          "(à persister + géolocaliser plus tard).",
+    if (resultat == null) {
+      // Rien trouvé
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Adresse introuvable avec OpenStreetMap."),
         ),
-      ),
+      );
+      return;
+    }
+
+    // équivalent de carte déjà visible
+    final bool etaitDejaConnue = _positionConnue;
+
+    // On a trouvé une adresse + coordonnées
+    setState(() {
+      _adresseActuelle = resultat.displayName;
+      _center = resultat.coordonnees;
+      _positionConnue = true;
+    });
+
+    // on ne bouge la caméra que si la carte existait déjà
+    if (etaitDejaConnue) {
+      _mapController.move(_center, 15.0);
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Adresse mise à jour : ${resultat.displayName}")),
     );
   }
 
@@ -250,13 +280,33 @@ class _PageDetailState extends State<PageDetail>
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            lieu.adresse!,
+                            _adresseActuelle!,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ),
                       ],
                     ),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.location_off, size: 18),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            "Adresse inconnue",
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontStyle: FontStyle.italic,
+                                  color: cs.outline,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
+
                   const SizedBox(height: 16),
 
                   //description
@@ -275,7 +325,7 @@ class _PageDetailState extends State<PageDetail>
                   const SizedBox(height: 16),
 
                   //  carte
-                  if (lieu.latitude != null && lieu.longitude != null) ...[
+                  if (_positionConnue) ...[
                     SizedBox(
                       height: 200,
                       child: FlutterMap(
@@ -458,7 +508,21 @@ class _PageDetailState extends State<PageDetail>
   }
 }
 
-// ======== COMMENTAIRES ========
+VilleResultat _reconstruireVilleDepuisLieu(Lieu lieu) {
+  //cleVille est du type "Paris,FR"
+  final parts = lieu.cleVille.split(',');
+  final nom = parts.isNotEmpty ? parts[0] : lieu.cleVille;
+  final pays = parts.length > 1 ? parts[1] : '';
+
+  return VilleResultat(
+    nom: nom,
+    pays: pays,
+    lat: 0, // pas utile ici
+    lon: 0,
+  );
+}
+
+// Commentaires
 
 class _Commentaire {
   final String texte;
