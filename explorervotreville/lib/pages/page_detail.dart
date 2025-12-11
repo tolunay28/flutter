@@ -183,8 +183,8 @@ class _PageDetailState extends State<PageDetail>
 
                   const SizedBox(height: 16),
 
-                  // description
-                  if (lieu.description != null || lieu.adresse != null) ...[
+                  // adresse
+                  if (lieu.adresse != null) ...[
                     const SizedBox(height: 8),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,14 +193,16 @@ class _PageDetailState extends State<PageDetail>
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            lieu.description ??
-                                lieu.adresse!, // description > adresse
+                            lieu.adresse!,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ),
                       ],
                     ),
                   ],
+                  const SizedBox(height: 16),
+
+                  //description
                   Text(
                     'Description',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -209,7 +211,7 @@ class _PageDetailState extends State<PageDetail>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Description à venir… (en attendant, ceci est un texte par défaut).',
+                    lieu.description ?? "Aucune description n'a été trouvée.",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
 

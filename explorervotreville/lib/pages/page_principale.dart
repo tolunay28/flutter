@@ -236,6 +236,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     final categorieController = TextEditingController();
     final imageController = TextEditingController();
     final adresseController = TextEditingController();
+    final descriptionController = TextEditingController();
 
     showDialog(
       context: context,
@@ -278,6 +279,14 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Description du lieu (optionnel)',
+                    prefixIcon: Icon(Icons.description),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Ville : ${_villeSelectionnee!.nom} (${_villeSelectionnee!.pays})',
                   style: Theme.of(context).textTheme.bodySmall,
@@ -295,24 +304,25 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                 final titre = titreController.text.trim();
                 final cat = categorieController.text.trim();
                 final img = imageController.text.trim();
-                final adresse = adresseController.text.trim();
+                final adresseSaisie = adresseController.text.trim();
+                final description = descriptionController.text.trim();
 
                 if (titre.isEmpty || cat.isEmpty) return;
 
                 double? lat;
                 double? lon;
-                String? description;
+                String? adresseComplete;
 
-                if (adresse.isNotEmpty) {
+                if (adresseSaisie.isNotEmpty) {
                   final resultat = await _map_api.chercherAdresse(
-                    adresse,
+                    adresseSaisie,
                     _villeSelectionnee!, // on sait qu'il est pas null
                   );
 
                   if (resultat != null) {
                     lat = resultat.coordonnees.latitude;
                     lon = resultat.coordonnees.longitude;
-                    description = resultat
+                    adresseComplete = resultat
                         .displayName; // texte long, type "Rue X, Ville, Pays"
                   } else {
                     if (!mounted) return;
@@ -334,10 +344,12 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                       categorie: cat,
                       cleVille: cle,
                       imageUrl: img.isEmpty ? null : img,
-                      adresse: adresse.isEmpty ? null : adresse,
+                      adresse:
+                          adresseComplete ??
+                          (adresseSaisie.isEmpty ? null : adresseSaisie),
                       latitude: lat,
                       longitude: lon,
-                      description: description,
+                      description: description.isEmpty ? null : description,
                     ),
                   );
                   _lieuxParVille[cle] = liste;
@@ -430,10 +442,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
               Expanded(
                 child: FlutterMap(
                   mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _center,
-                    initialZoom: 10.0,
-                  ),
+                  options: MapOptions(initialCenter: _center, initialZoom: 9.0),
                   children: [
                     TileLayer(
                       urlTemplate:
