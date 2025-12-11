@@ -1,3 +1,4 @@
+import 'package:explorervotreville/services/wikimedia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -20,6 +21,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   );
   final VillesMeteoApi _api = VillesMeteoApi();
   final Map_api _map_api = Map_api();
+  final WikimediaApi _wikimediaApi = WikimediaApi();
   final MapController _mapController = MapController();
 
   LatLng _center = const LatLng(
@@ -260,13 +262,64 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: imageController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de l’image (optionnel)',
-                      prefixIcon: Icon(Icons.image),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: imageController,
+                          decoration: const InputDecoration(
+                            labelText:
+                                'URL de l’image (optionnel) recherche automatique  -> \n (conseillé pour les lieux connus) ',
+                            prefixIcon: Icon(Icons.image),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: 'Chercher une image avec Wikimedia',
+                        icon: const Icon(Icons.image_search),
+                        onPressed: () async {
+                          final titre = titreController.text.trim();
+                          if (titre.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Veuillez d’abord saisir un titre de lieu.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          // Appel à Wikimedia
+                          final urlImage = await _wikimediaApi
+                              .chercherImagePourLieu(titre);
+
+                          if (!mounted) return;
+
+                          if (urlImage != null) {
+                            setState(() {
+                              imageController.text = urlImage;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Image trouvée via Wikimedia '),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Aucune image trouvée pour ce lieu sur Wikimedia. Veuillez saisir vous-même une URL '
+                                  'd’image si vous souhaitez ajouter une photo au lieu.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
                   ),
+
                   const SizedBox(height: 8),
                   TextField(
                     controller: descriptionController,

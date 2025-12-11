@@ -318,7 +318,7 @@ class _PageDetailState extends State<PageDetail>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    lieu.description ?? "Aucune description n'a été trouvée.",
+                    lieu.description ?? "Aucune description n'a été donnée.",
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
 
