@@ -2,8 +2,10 @@ import 'package:explorervotreville/services/wikimedia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
 import '../models/lieu.dart';
+import '../providers/setting_provider.dart';
 import '../services/map_api.dart';
 import '../services/villes_meteo_api.dart';
 
@@ -545,6 +547,31 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('ExplorezVotreVille')),
+      drawer: Drawer(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Paramètres',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+              ),
+
+              SwitchListTile(
+                title: const Text('Mode sombre'),
+                value: context.watch<SettingsProvider>().darkMode,
+                onChanged: (value) {
+                  context.read<SettingsProvider>().toggleDarkMode(value);
+                },
+                secondary: const Icon(Icons.dark_mode),
+              ),
+            ],
+          ),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
