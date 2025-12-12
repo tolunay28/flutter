@@ -314,6 +314,14 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   ),
 
                   const SizedBox(height: 8),
+                  TextField(
+                    controller: adresseController,
+                    decoration: const InputDecoration(
+                      labelText: 'Adresse (optionnel)',
+                      prefixIcon: Icon(Icons.location_on),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
