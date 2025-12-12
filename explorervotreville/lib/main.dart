@@ -10,9 +10,9 @@ import 'pages/page_principale.dart';
 import 'providers/setting_provider.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized(); // permet de créer le pont entre dart et IOS/Android etc
 
-  // On initialise le provider AVANT runApp (SharedPreferences)
+  // On initialise le provider avant runApp (SharedPreferences)
   final settings = SettingsProvider();
   await settings.init();
 
@@ -35,10 +35,10 @@ class ExplorezVotreVilleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'ExplorezVotreVille',
 
-      // thème clair + sombre (Material 3)
+      // thème clair + sombre
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.indigo),
       darkTheme: ThemeData.dark(useMaterial3: true),
-      themeMode: settings.themeMode, // piloté par SharedPreferences
+      themeMode: settings.themeMode, // SharedPreferences
 
       initialRoute: '/',
       routes: {

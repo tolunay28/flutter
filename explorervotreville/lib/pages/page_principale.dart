@@ -162,7 +162,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     }
   }
 
-  void _choisirVille(VilleResultat ville) {
+  Future<void> _choisirVille(VilleResultat ville) async {
     final newCenter = LatLng(ville.lat, ville.lon);
     setState(() {
       _villeSelectionnee = ville;
@@ -172,9 +172,9 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       _center = newCenter;
     });
     _mapController.move(newCenter, 12.0);
-    _chargerMeteoPourVille(ville);
+    await _chargerMeteoPourVille(ville);
     //ajoute en historique
-    context.read<SettingsProvider>().addRecentCity(ville);
+    await context.read<SettingsProvider>().addRecentCity(ville);
   }
 
   Future<void> _afficherDialogChoixVille(List<VilleResultat> resultats) async {
@@ -195,7 +195,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     );
 
     if (villeChoisie != null) {
-      _choisirVille(villeChoisie);
+      await _choisirVille(villeChoisie);
     } else {
       setState(() {
         _loadingVille = false;
@@ -574,8 +574,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
               SwitchListTile(
                 title: const Text('Mode sombre'),
                 value: context.watch<SettingsProvider>().darkMode,
-                onChanged: (value) {
-                  context.read<SettingsProvider>().toggleDarkMode(value);
+                onChanged: (value) async {
+                  await context.read<SettingsProvider>().toggleDarkMode(value);
                 },
                 secondary: const Icon(Icons.dark_mode),
               ),
@@ -637,7 +637,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                         return ListTile(
                           leading: const Icon(Icons.location_on),
                           title: Text('${v.nom} (${v.pays})'),
-                          onTap: () => _choisirVille(v), // clique suggestion
+                          onTap: () async =>
+                              await _choisirVille(v), // clique suggestion
                         );
                       },
                     ),
@@ -652,7 +653,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   children: recents.take(5).map((v) {
                     return ActionChip(
                       label: Text('${v.nom} (${v.pays})'),
-                      onPressed: () => _choisirVille(v),
+                      onPressed: () async => await _choisirVille(v),
                     );
                   }).toList(),
                 ),
