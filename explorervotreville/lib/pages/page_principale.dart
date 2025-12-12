@@ -56,7 +56,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   }
 
   List<Lieu> get _lieuxPourVilleSelectionnee {
-    final cle = _villeSelectionnee?.cle;
+    final cle = _villeSelectionnee?.cle; // cle = nom,pays
     if (cle == null) return [];
     return _lieuxParVille[cle] ?? [];
   }
@@ -199,6 +199,22 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     }
   }
 
+  void _mettreAJourLieu(Lieu ancien, Lieu nouveau) {
+    final cle = ancien.cleVille; // ex: "Paris,FR"
+    final liste = _lieuxParVille[cle];
+    if (liste == null) return;
+
+    final index = liste.indexOf(ancien); // cherche la pos de l'objet ancien
+    if (index == -1) return; // s'il n'est pas trouvé = -1 (on ne fait rien)
+
+    setState(() {
+      liste[index] = nouveau; //
+      _lieuxParVille[cle] = List.from(
+        liste,
+      ); // List.from au cas où le rebuild ne fonctionnerait pas juste avec l'affectation
+    });
+  }
+
   Future<void> _getInitLocation() async {
     try {
       // Une seule ligne pour tout faire
@@ -269,7 +285,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                           controller: imageController,
                           decoration: const InputDecoration(
                             labelText:
-                                'URL de l’image (optionnel) recherche automatique  -> \n (conseillé pour les lieux connus) ',
+                                'URL de l’image (optionnel) recherche automatique  -> \n (recherche conseillé pour les lieux connus) ',
                             prefixIcon: Icon(Icons.image),
                           ),
                         ),
@@ -458,7 +474,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   border: const OutlineInputBorder(),
                 ),
                 textInputAction: TextInputAction.search,
-                onChanged: _mettreAJourSuggestions, // 🔹 autocomplétion
+                onChanged: _mettreAJourSuggestions, // autocomplétion
                 onSubmitted: (_) => _rechercherVille(),
               ),
 
@@ -484,7 +500,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                         return ListTile(
                           leading: const Icon(Icons.location_on),
                           title: Text('${v.nom} (${v.pays})'),
-                          onTap: () => _choisirVille(v), // 🔹 clique suggestion
+                          onTap: () => _choisirVille(v), // clique suggestion
                         );
                       },
                     ),
@@ -509,14 +525,45 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     ),
                     MarkerLayer(
                       markers: [
+                        // marker de la ville (position courante)
                         Marker(
                           point: _center,
+                          width: 40,
+                          height: 40,
                           child: const Icon(
-                            Icons.location_on,
+                            Icons.location_city,
+                            size: 35,
                             color: Colors.red,
-                            size: 40,
                           ),
                         ),
+
+                        // markers pour les lieux de la ville
+                        if (ville != null)
+                          ..._lieuxPourVilleSelectionnee // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
+                              .where(
+                                (l) =>
+                                    l.latitude != null && l.longitude != null,
+                              )
+                              .map(
+                                (lieu) => Marker(
+                                  width: 40,
+                                  height: 40,
+                                  point: LatLng(
+                                    lieu.latitude!,
+                                    lieu.longitude!,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        '/page_detail',
+                                        arguments: lieu,
+                                      );
+                                    },
+                                    child: const Icon(Icons.place, size: 34),
+                                  ),
+                                ),
+                              ),
                       ],
                     ),
                   ],
@@ -640,7 +687,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
         ),
       ),
 
-      // 🔹 BOUTON POUR AJOUTER DES LIEUX
+      // Bouton pour ajouter des lieux
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _ouvrirDialogAjoutLieu,
         icon: const Icon(Icons.add_location_alt),
@@ -660,12 +707,20 @@ class _LieuCard extends StatelessWidget {
 
     return InkWell(
       // rend la card cliquable
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/page_detail', // route nommée
-          arguments: lieu, // on passe l'objet Lieu à la page détail
+      onTap: () async {
+        // On récupère navigator et state avant l'await car context dans await peut être problématique
+        final navigator = Navigator.of(context);
+        //Récupérer le parent PagePrincipale pour mettre à jour les lieux
+        final state = context.findAncestorStateOfType<_PagePrincipaleState>();
+
+        final resultat = await navigator.pushNamed(
+          '/page_detail',
+          arguments: lieu,
         );
+
+        if (resultat is Lieu && state != null) {
+          state._mettreAJourLieu(lieu, resultat);
+        }
       },
       borderRadius: BorderRadius.circular(16),
       child: Card(

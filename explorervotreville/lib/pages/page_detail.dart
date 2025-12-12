@@ -32,6 +32,7 @@ class _PageDetailState extends State<PageDetail>
 
   final List<_Commentaire> _commentaires = [];
 
+  late Lieu _lieuActuel; // copie locale modifiable
   String? _adresseActuelle;
   final Map_api _mapApi = Map_api();
 
@@ -39,11 +40,11 @@ class _PageDetailState extends State<PageDetail>
   void initState() {
     super.initState();
 
-    final lieu = widget.lieu; // widget permet de recuperer le lieu en param
-    _adresseActuelle = lieu.adresse;
+    _lieuActuel = widget.lieu; // widget permet de recuperer le lieu en param
+    _adresseActuelle = _lieuActuel.adresse;
 
-    if (lieu.latitude != null && lieu.longitude != null) {
-      _center = LatLng(lieu.latitude!, lieu.longitude!);
+    if (_lieuActuel.latitude != null && _lieuActuel.longitude != null) {
+      _center = LatLng(_lieuActuel.latitude!, _lieuActuel.longitude!);
       _positionConnue = true;
     } else {
       _center = const LatLng(
@@ -101,7 +102,7 @@ class _PageDetailState extends State<PageDetail>
   }
 
   void _modifierAdresse() async {
-    final lieu = widget.lieu;
+    final lieu = _lieuActuel;
 
     // On part de l’adresse actuelle si elle existe
     final controller = TextEditingController(text: _adresseActuelle ?? '');
@@ -162,6 +163,17 @@ class _PageDetailState extends State<PageDetail>
       _adresseActuelle = resultat.displayName;
       _center = resultat.coordonnees;
       _positionConnue = true;
+
+      _lieuActuel = Lieu(
+        titre: lieu.titre,
+        categorie: lieu.categorie,
+        cleVille: lieu.cleVille,
+        imageUrl: lieu.imageUrl,
+        description: lieu.description,
+        adresse: _adresseActuelle,
+        latitude: _center.latitude,
+        longitude: _center.longitude,
+      );
     });
 
     // on ne bouge la caméra que si la carte existait déjà
@@ -177,328 +189,341 @@ class _PageDetailState extends State<PageDetail>
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final lieu = widget.lieu;
+    final lieu = _lieuActuel;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(lieu.titre)),
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: SingleChildScrollView(
-              // permet de scroller le widget
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, // met a gauche
-                children: [
-                  // image
-                  ClipRRect(
-                    // permet d'arrondir l'image (container a ces bords arrondi mais pas l'image)
-                    borderRadius: BorderRadius.circular(16),
-                    child: lieu.imageUrl != null
-                        ? Image.network(
-                            lieu.imageUrl!,
-                            height: 220,
-                            width: double.infinity,
-                            fit: BoxFit.contain, // pareil dans page_principal
-                          )
-                        : Container(
-                            height: 220,
-                            width: double.infinity,
-                            color: cs.surfaceContainerHighest,
-                            child: const Icon(Icons.photo, size: 64),
+    return PopScope(
+      canPop: false, // Empêche le pop automatique
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          // Quand l'utilisateur quitte, on renvoie le lieu mis à jour
+          Navigator.pop(context, _lieuActuel);
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(lieu.titre)),
+        body: SafeArea(
+          child: FadeTransition(
+            opacity: _fadeAnimation,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: SingleChildScrollView(
+                // permet de scroller le widget
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, // met a gauche
+                  children: [
+                    // image
+                    ClipRRect(
+                      // permet d'arrondir l'image (container a ces bords arrondi mais pas l'image)
+                      borderRadius: BorderRadius.circular(16),
+                      child: lieu.imageUrl != null
+                          ? Image.network(
+                              lieu.imageUrl!,
+                              height: 220,
+                              width: double.infinity,
+                              fit: BoxFit.contain, // pareil dans page_principal
+                            )
+                          : Container(
+                              height: 220,
+                              width: double.infinity,
+                              color: cs.surfaceContainerHighest,
+                              child: const Icon(Icons.photo, size: 64),
+                            ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // titre + catégorie + note
+                    Row(
+                      children: [
+                        Expanded(
+                          //prend tout l'espace dispo
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lieu.titre,
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(
+                                      // ? pour eviter de crash si c'est nul
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                lieu.categorie,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: cs.primary),
+                              ),
+                            ],
                           ),
-                  ),
+                        ),
 
-                  const SizedBox(height: 16),
+                        // note animée
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _noteMoyenne >= 4
+                                ? cs.primaryContainer
+                                : cs.secondaryContainer, // plus 'claire'
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                _noteMoyenne.toStringAsFixed(1),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
 
-                  // titre + catégorie + note
-                  Row(
-                    children: [
-                      Expanded(
-                        //prend tout l'espace dispo
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              lieu.titre,
-                              style: Theme.of(context).textTheme.titleLarge
+                    const SizedBox(height: 16),
+
+                    // adresse
+                    if (_adresseActuelle != null &&
+                        _adresseActuelle!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.location_on, size: 18),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _adresseActuelle!,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.location_off, size: 18),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              "Adresse inconnue",
+                              style: Theme.of(context).textTheme.bodyMedium
                                   ?.copyWith(
-                                    // ? pour eviter de crash si c'est nul
-                                    fontWeight: FontWeight.bold,
+                                    fontStyle: FontStyle.italic,
+                                    color: cs.outline,
                                   ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              lieu.categorie,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(color: cs.primary),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    //description
+                    Text(
+                      'Description',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      lieu.description ?? "Aucune description n'a été donnée.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    //  carte
+                    if (_positionConnue) ...[
+                      SizedBox(
+                        height: 200,
+                        child: FlutterMap(
+                          mapController: _mapController,
+                          options: MapOptions(
+                            initialCenter: _center,
+                            initialZoom: 15.0,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                              retinaMode: true,
+                              subdomains: const ['a', 'b', 'c', 'd'],
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: _center,
+                                  child: const Icon(
+                                    Icons.location_on,
+                                    color: Colors.red,
+                                    size: 40,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-
-                      // note animée
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
+                    ] else ...[
+                      Container(
+                        height: 140,
+                        width: double.infinity,
                         decoration: BoxDecoration(
-                          color: _noteMoyenne >= 4
-                              ? cs.primaryContainer
-                              : cs.secondaryContainer, // plus 'claire'
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(16),
                         ),
+                        padding: const EdgeInsets.all(16),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.star, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              _noteMoyenne.toStringAsFixed(1),
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            Icon(
+                              Icons.location_off,
+                              size: 32,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Position inconnue pour ce lieu",
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Aucune adresse ou coordonnées n'ont été renseignées.",
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: TextButton.icon(
+                                      onPressed: _modifierAdresse,
+                                      icon: const Icon(Icons.edit_location_alt),
+                                      label: const Text("Modifier l'adresse"),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ],
-                  ),
+                    const SizedBox(height: 24),
 
-                  const SizedBox(height: 16),
-
-                  // adresse
-                  if (_adresseActuelle != null &&
-                      _adresseActuelle!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.location_on, size: 18),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _adresseActuelle!,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(Icons.location_off, size: 18),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            "Adresse inconnue",
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  fontStyle: FontStyle.italic,
-                                  color: cs.outline,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  const SizedBox(height: 16),
-
-                  //description
-                  Text(
-                    'Description',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    lieu.description ?? "Aucune description n'a été donnée.",
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  //  carte
-                  if (_positionConnue) ...[
-                    SizedBox(
-                      height: 200,
-                      child: FlutterMap(
-                        mapController: _mapController,
-                        options: MapOptions(
-                          initialCenter: _center,
-                          initialZoom: 15.0,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate:
-                                "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                            retinaMode: true,
-                            subdomains: const ['a', 'b', 'c', 'd'],
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              Marker(
-                                point: _center,
-                                child: const Icon(
-                                  Icons.location_on,
-                                  color: Colors.red,
-                                  size: 40,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                    // commentaires
+                    Text(
+                      'Commentaires',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  ] else ...[
-                    Container(
-                      height: 140,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surfaceContainerHighest,
+                    const SizedBox(height: 8),
+
+                    if (_commentaires.isEmpty)
+                      Text(
+                        'Aucun commentaire pour le moment.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    else
+                      ListView.separated(
+                        shrinkWrap:
+                            true, // prend seulement la taille(hauteur) nécessaire
+                        physics:
+                            const NeverScrollableScrollPhysics(), // car dans SingleChildScrollView
+                        itemCount: _commentaires.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (context, index) {
+                          return _CommentaireCard(
+                            commentaire: _commentaires[index],
+                          );
+                        },
+                      ),
+
+                    const SizedBox(height: 24),
+
+                    // ajouter commentaire
+                    Text(
+                      'Ajouter un commentaire',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    Card(
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.location_off,
-                            size: 32,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Position inconnue pour ce lieu",
-                                  style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "Aucune adresse ou coordonnées n'ont été renseignées.",
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton.icon(
-                                    onPressed: _modifierAdresse,
-                                    icon: const Icon(Icons.edit_location_alt),
-                                    label: const Text("Modifier l'adresse"),
-                                  ),
-                                ),
-                              ],
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _commentController,
+                              maxLines: 3,
+                              decoration: const InputDecoration(
+                                hintText:
+                                    'Votre commentaire…', // texte grisé avant une saisie
+                                border:
+                                    OutlineInputBorder(), // cadre autour du champs
+                              ),
                             ),
-                          ),
-                        ],
+
+                            const SizedBox(height: 12),
+
+                            Text(
+                              'Note : ${_noteCourante.toStringAsFixed(1)}', // (avec une seule décimale)
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+
+                            Slider(
+                              min: 0,
+                              max: 5,
+                              divisions:
+                                  10, // permet d'obtenir le cran des notes (max / div) = 0.5
+                              value: _noteCourante,
+                              onChanged: (v) {
+                                setState(() => _noteCourante = v);
+                              },
+                            ),
+
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: FilledButton.icon(
+                                onPressed: _ajouterCommentaire,
+                                icon: const Icon(Icons.send),
+                                label: const Text('Publier'),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-
-                  // commentaires
-                  Text(
-                    'Commentaires',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  if (_commentaires.isEmpty)
-                    Text(
-                      'Aucun commentaire pour le moment.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap:
-                          true, // prend seulement la taille(hauteur) nécessaire
-                      physics:
-                          const NeverScrollableScrollPhysics(), // car dans SingleChildScrollView
-                      itemCount: _commentaires.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        return _CommentaireCard(
-                          commentaire: _commentaires[index],
-                        );
-                      },
-                    ),
-
-                  const SizedBox(height: 24),
-
-                  // ajouter commentaire
-                  Text(
-                    'Ajouter un commentaire',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _commentController,
-                            maxLines: 3,
-                            decoration: const InputDecoration(
-                              hintText:
-                                  'Votre commentaire…', // texte grisé avant une saisie
-                              border:
-                                  OutlineInputBorder(), // cadre autour du champs
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Text(
-                            'Note : ${_noteCourante.toStringAsFixed(1)}', // (avec une seule décimale)
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-
-                          Slider(
-                            min: 0,
-                            max: 5,
-                            divisions:
-                                10, // permet d'obtenir le cran des notes (max / div) = 0.5
-                            value: _noteCourante,
-                            onChanged: (v) {
-                              setState(() => _noteCourante = v);
-                            },
-                          ),
-
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: FilledButton.icon(
-                              onPressed: _ajouterCommentaire,
-                              icon: const Icon(Icons.send),
-                              label: const Text('Publier'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -595,7 +620,7 @@ class _CommentaireCard extends StatelessWidget {
     // format simple JJ/MM/AA  ,padleft ajoute 0 si le jour est < 10
     final day = d.day.toString().padLeft(2, '0');
     final month = d.month.toString().padLeft(2, '0');
-    final year = d.year.toString().padLeft(2, '0');
+    final year = d.year.toString();
 
     return '$day/$month/$year';
   }
