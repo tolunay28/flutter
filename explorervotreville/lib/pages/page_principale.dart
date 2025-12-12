@@ -43,6 +43,21 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   bool _loadingSuggestions = false;
   String _lastSuggestQuery = '';
 
+  static const List<String> _categories = [
+    'Musée',
+    'Salle de concert',
+    'Théâtre',
+    'Cinéma',
+    'Parc',
+    'Stade',
+    'Monument',
+    'Restaurant',
+    'Bar',
+    'Shopping',
+    'Point de vue',
+    'Autre',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -245,10 +260,10 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     }
 
     final titreController = TextEditingController();
-    final categorieController = TextEditingController();
     final imageController = TextEditingController();
     final adresseController = TextEditingController();
     final descriptionController = TextEditingController();
+    String? categorieSelectionnee;
 
     showDialog(
       context: context,
@@ -270,13 +285,34 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  TextField(
-                    controller: categorieController,
-                    decoration: const InputDecoration(
-                      labelText: 'Catégorie (restaurant, parc...)',
-                      prefixIcon: Icon(Icons.category),
-                    ),
+                  StatefulBuilder(
+                    //" rafraichir" le dropdown dans le dialog sans créer un widget séparé
+                    builder: (context, setLocalState) {
+                      return DropdownButtonFormField<String>(
+                        // bouton pour liste déroulante
+                        initialValue: categorieSelectionnee,
+                        decoration: const InputDecoration(
+                          labelText: 'Catégorie',
+                          prefixIcon: Icon(Icons.category),
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _categories
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setLocalState(() {
+                            categorieSelectionnee = value;
+                          });
+                        },
+                        // validator=null -> le champs n'est pas vide
+                        validator: (value) =>
+                            value == null ? 'Choisissez une catégorie' : null,
+                      );
+                    },
                   ),
+
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -361,12 +397,12 @@ class _PagePrincipaleState extends State<PagePrincipale> {
             FilledButton(
               onPressed: () async {
                 final titre = titreController.text.trim();
-                final cat = categorieController.text.trim();
+                final cat = categorieSelectionnee;
                 final img = imageController.text.trim();
                 final adresseSaisie = adresseController.text.trim();
                 final description = descriptionController.text.trim();
 
-                if (titre.isEmpty || cat.isEmpty) return;
+                if (titre.isEmpty || cat == null) return;
 
                 double? lat;
                 double? lon;
