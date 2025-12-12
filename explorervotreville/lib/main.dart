@@ -1,5 +1,7 @@
 import 'package:explorervotreville/pages/page_detail.dart';
+import 'package:explorervotreville/pages/page_selection_position.dart';
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 
 import 'models/lieu.dart';
 import 'pages/page_accueil.dart';
@@ -30,6 +32,17 @@ class ExplorezVotreVilleApp extends StatelessWidget {
         if (settings.name == '/page_detail') {
           final lieu = settings.arguments as Lieu;
           return MaterialPageRoute(builder: (_) => PageDetail(lieu: lieu));
+        }
+
+        if (settings.name == '/page_selection_position') {
+          final initial = settings.arguments as LatLng?;
+          return MaterialPageRoute(
+            builder: (_) => PageSelectionPosition(
+              initialCenter:
+                  initial ??
+                  const LatLng(48.8566, 2.3522), // Paris par défaut),
+            ),
+          );
         }
         return null;
       },

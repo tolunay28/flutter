@@ -304,6 +304,11 @@ class _PageDetailState extends State<PageDetail>
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ),
+                          IconButton(
+                            tooltip: "Modifier l'adresse",
+                            icon: const Icon(Icons.edit_location_alt),
+                            onPressed: _modifierAdresse,
+                          ),
                         ],
                       ),
                     ] else ...[

@@ -263,33 +263,35 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     final imageController = TextEditingController();
     final adresseController = TextEditingController();
     final descriptionController = TextEditingController();
-    String? categorieSelectionnee;
+    String? categorieSelectionnee = _categories.first;
+    LatLng? positionSelectionnee;
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Ajouter un lieu'),
-          content: SizedBox(
-            width: 500,
-            height: 550,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titreController,
-                    decoration: const InputDecoration(
-                      labelText: 'Titre du lieu',
-                      prefixIcon: Icon(Icons.place),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  StatefulBuilder(
-                    //" rafraichir" le dropdown dans le dialog sans créer un widget séparé
-                    builder: (context, setLocalState) {
-                      return DropdownButtonFormField<String>(
-                        // bouton pour liste déroulante
+        return StatefulBuilder(
+          // " rafraichir" tout le dialog (dropdown + carte) dans le dialog sans créer un widget séparé
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              title: const Text('Ajouter un lieu'),
+              content: SizedBox(
+                width: 500,
+                height: 550,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titreController,
+                        decoration: const InputDecoration(
+                          labelText: 'Titre du lieu',
+                          prefixIcon: Icon(Icons.place),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // bouton pour liste déroulante
+                      DropdownButtonFormField<String>(
                         initialValue: categorieSelectionnee,
                         decoration: const InputDecoration(
                           labelText: 'Catégorie',
@@ -306,176 +308,229 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                             categorieSelectionnee = value;
                           });
                         },
-                        // validator=null -> le champs n'est pas vide
-                        validator: (value) =>
-                            value == null ? 'Choisissez une catégorie' : null,
-                      );
-                    },
-                  ),
+                      ),
 
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: adresseController,
-                    decoration: const InputDecoration(
-                      labelText: 'Adresse (optionnel)',
-                      prefixIcon: Icon(Icons.location_on),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: imageController,
-                          decoration: const InputDecoration(
-                            labelText:
-                                'URL de l’image (optionnel) recherche automatique  -> \n (recherche conseillé pour les lieux connus) ',
-                            prefixIcon: Icon(Icons.image),
-                          ),
+                      const SizedBox(height: 8),
+
+                      TextField(
+                        controller: adresseController,
+                        decoration: const InputDecoration(
+                          labelText: 'Adresse (optionnel)',
+                          prefixIcon: Icon(Icons.location_on),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        tooltip: 'Chercher une image avec Wikimedia',
-                        icon: const Icon(Icons.image_search),
-                        onPressed: () async {
-                          final titre = titreController.text.trim();
-                          if (titre.isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Veuillez d’abord saisir un titre de lieu.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          // Appel à Wikimedia
-                          final urlImage = await _wikimediaApi
-                              .chercherImagePourLieu(titre);
+                      const SizedBox(height: 8),
 
-                          if (!mounted) return;
+                      //  ajouter un lieu depuis la carte
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.map),
+                            label: Text(
+                              positionSelectionnee == null
+                                  ? "Choisir sur la carte"
+                                  : "Modifier la position",
+                            ),
+                            onPressed: () async {
+                              // centre = ville sélectionnée si possible, sinon centre actuel de la map
+                              final center = _villeSelectionnee != null
+                                  ? LatLng(
+                                      _villeSelectionnee!.lat,
+                                      _villeSelectionnee!.lon,
+                                    )
+                                  : _center;
 
-                          if (urlImage != null) {
-                            setState(() {
-                              imageController.text = urlImage;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Image trouvée via Wikimedia '),
+                              final picked = await Navigator.pushNamed(
+                                ctx,
+                                '/page_selection_position',
+                                arguments: positionSelectionnee ?? center,
+                              );
+
+                              if (picked is LatLng) {
+                                setLocalState(() {
+                                  positionSelectionnee = picked;
+                                });
+                              }
+                            },
+                          ),
+
+                          if (positionSelectionnee != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              "Lat: ${positionSelectionnee!.latitude.toStringAsFixed(5)}, "
+                              "Lon: ${positionSelectionnee!.longitude.toStringAsFixed(5)}",
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: imageController,
+                              decoration: const InputDecoration(
+                                labelText:
+                                    'URL de l’image (optionnel) recherche automatique  -> \n (recherche conseillé pour les lieux connus) ',
+                                prefixIcon: Icon(Icons.image),
                               ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Aucune image trouvée pour ce lieu sur Wikimedia. Veuillez saisir vous-même une URL '
-                                  'd’image si vous souhaitez ajouter une photo au lieu.',
-                                ),
-                              ),
-                            );
-                          }
-                        },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Chercher une image avec Wikimedia',
+                            icon: const Icon(Icons.image_search),
+                            onPressed: () async {
+                              final titre = titreController.text.trim();
+                              if (titre.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Veuillez d’abord saisir un titre de lieu.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                              // Appel à Wikimedia
+                              final urlImage = await _wikimediaApi
+                                  .chercherImagePourLieu(titre);
+
+                              if (!mounted) return;
+
+                              if (urlImage != null) {
+                                setLocalState(() {
+                                  imageController.text = urlImage;
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Image trouvée via Wikimedia ',
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Aucune image trouvée pour ce lieu sur Wikimedia. Veuillez saisir vous-même une URL '
+                                      'd’image si vous souhaitez ajouter une photo au lieu.',
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Description du lieu (optionnel)',
+                          prefixIcon: Icon(Icons.description),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Ville : ${_villeSelectionnee!.nom} (${_villeSelectionnee!.pays})',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description du lieu (optionnel)',
-                      prefixIcon: Icon(Icons.description),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Ville : ${_villeSelectionnee!.nom} (${_villeSelectionnee!.pays})',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final titre = titreController.text.trim();
-                final cat = categorieSelectionnee;
-                final img = imageController.text.trim();
-                final adresseSaisie = adresseController.text.trim();
-                final description = descriptionController.text.trim();
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    final titre = titreController.text.trim();
+                    final cat = categorieSelectionnee;
+                    final img = imageController.text.trim();
+                    final adresseSaisie = adresseController.text.trim();
+                    final description = descriptionController.text.trim();
 
-                if (titre.isEmpty || cat == null) return;
+                    if (titre.isEmpty || cat == null) return;
 
-                double? lat;
-                double? lon;
-                String? adresseComplete;
+                    double? lat;
+                    double? lon;
+                    String? adresseComplete;
 
-                //  On choisit quoi envoyer à Nominatim :
-                //  - si l'utilisateur a mis une adresse : on la prend
-                //  - sinon : on essaye avec le titre du lieu (pour les lieux connus aucun problème)
-                String? requetePourNominatim;
-                if (adresseSaisie.isNotEmpty) {
-                  requetePourNominatim = adresseSaisie;
-                } else {
-                  requetePourNominatim = titre;
-                }
+                    //  On choisit quoi envoyer à Nominatim :
+                    //  - si l'utilisateur a mis une adresse : on la prend
+                    //  - sinon : on essaye avec le titre du lieu (pour les lieux connus aucun problème)
+                    //  - Priorité à la position choisie sur la carte
+                    if (positionSelectionnee != null) {
+                      lat = positionSelectionnee!.latitude;
+                      lon = positionSelectionnee!.longitude;
 
-                if (requetePourNominatim.isNotEmpty) {
-                  final resultat = await _map_api.chercherAdresse(
-                    requetePourNominatim,
-                    _villeSelectionnee!, // on sait qu'il n'est pas null
-                  );
+                      adresseComplete = adresseSaisie.isEmpty
+                          ? 'Position choisie sur la carte'
+                          : adresseSaisie;
+                    } else {
+                      // Sinon, on tente Nominatim avec juste le titre du lieu
+                      String requetePourNominatim = adresseSaisie.isNotEmpty
+                          ? adresseSaisie
+                          : titre;
 
-                  if (resultat != null) {
-                    lat = resultat.coordonnees.latitude;
-                    lon = resultat.coordonnees.longitude;
-                    adresseComplete = resultat
-                        .displayName; // texte long, type "Rue X, Ville, Pays"
-                  } else {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Adresse introuvable pour "$requetePourNominatim". '
-                          'Le lieu sera ajouté sans position précise.',
+                      final resultat = await _map_api.chercherAdresse(
+                        requetePourNominatim,
+                        _villeSelectionnee!,
+                      );
+
+                      if (resultat != null) {
+                        lat = resultat.coordonnees.latitude;
+                        lon = resultat.coordonnees.longitude;
+                        adresseComplete = resultat
+                            .displayName; // texte long, type "Rue X, Ville, Pays"
+                      } else {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Adresse introuvable pour "$requetePourNominatim". '
+                              'Le lieu sera ajouté sans position précise.',
+                            ),
+                          ),
+                        );
+                      }
+                    }
+
+                    final cle = _villeSelectionnee!.cle;
+                    final liste = _lieuxParVille[cle] ?? [];
+
+                    setState(() {
+                      liste.add(
+                        Lieu(
+                          titre: titre,
+                          categorie: cat,
+                          cleVille: cle,
+                          imageUrl: img.isEmpty ? null : img,
+                          adresse:
+                              adresseComplete ??
+                              (adresseSaisie.isEmpty ? null : adresseSaisie),
+                          latitude: lat,
+                          longitude: lon,
+                          description: description.isEmpty ? null : description,
                         ),
-                      ),
-                    );
-                  }
-                }
+                      );
+                      _lieuxParVille[cle] = liste;
+                    });
 
-                final cle = _villeSelectionnee!.cle;
-                final liste = _lieuxParVille[cle] ?? [];
-
-                setState(() {
-                  liste.add(
-                    Lieu(
-                      titre: titre,
-                      categorie: cat,
-                      cleVille: cle,
-                      imageUrl: img.isEmpty ? null : img,
-                      adresse:
-                          adresseComplete ??
-                          (adresseSaisie.isEmpty ? null : adresseSaisie),
-                      latitude: lat,
-                      longitude: lon,
-                      description: description.isEmpty ? null : description,
-                    ),
-                  );
-                  _lieuxParVille[cle] = liste;
-                });
-
-                Navigator.of(ctx).pop();
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text('Ajouter'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
