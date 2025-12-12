@@ -64,6 +64,14 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   void initState() {
     super.initState();
     _getInitLocation();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // attend que la page avant d'executer le code en dessous
+      final saved = context.read<SettingsProvider>().defaultCity;
+      if (saved != null) {
+        _choisirVille(saved);
+      }
+    });
   }
 
   @override
@@ -165,6 +173,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     });
     _mapController.move(newCenter, 12.0);
     _chargerMeteoPourVille(ville);
+    //ajoute en historique
+    context.read<SettingsProvider>().addRecentCity(ville);
   }
 
   Future<void> _afficherDialogChoixVille(List<VilleResultat> resultats) async {
@@ -544,6 +554,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     final cs = Theme.of(context).colorScheme;
     final ville = _villeSelectionnee;
     final lieuxVille = _lieuxPourVilleSelectionnee;
+    final recents = context.watch<SettingsProvider>().recentCities;
 
     return Scaffold(
       appBar: AppBar(title: const Text('ExplorezVotreVille')),
@@ -604,7 +615,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                 onSubmitted: (_) => _rechercherVille(),
               ),
 
-              // Suggestions de villes (sous le TextField)
+              // Suggestions de villes
               if (_loadingSuggestions)
                 const Padding(
                   padding: EdgeInsets.only(top: 4),
@@ -632,9 +643,23 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     ),
                   ),
                 ),
+              // villes récentes
+              if (recents.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8, // hor
+                  runSpacing: 8, // vertical
+                  children: recents.take(5).map((v) {
+                    return ActionChip(
+                      label: Text('${v.nom} (${v.pays})'),
+                      onPressed: () => _choisirVille(v),
+                    );
+                  }).toList(),
+                ),
+              ],
 
               const SizedBox(height: 16),
-
+              //map
               Expanded(
                 child: FlutterMap(
                   mapController: _mapController,
@@ -686,7 +711,11 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                         arguments: lieu,
                                       );
                                     },
-                                    child: const Icon(Icons.place, size: 34),
+                                    child: const Icon(
+                                      Icons.place,
+                                      size: 34,
+                                      color: Colors.green,
+                                    ),
                                   ),
                                 ),
                               ),
