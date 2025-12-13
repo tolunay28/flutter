@@ -1,5 +1,6 @@
 import 'package:explorervotreville/pages/page_detail.dart';
 import 'package:explorervotreville/pages/page_selection_position.dart';
+import 'package:explorervotreville/providers/lieux_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
@@ -17,8 +18,11 @@ void main() async {
   await settings.init();
 
   runApp(
-    ChangeNotifierProvider.value(
-      value: settings,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider(create: (_) => LieuxProvider()),
+      ],
       child: const ExplorezVotreVilleApp(),
     ),
   );

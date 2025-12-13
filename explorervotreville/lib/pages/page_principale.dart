@@ -1,3 +1,4 @@
+import 'package:explorervotreville/providers/lieux_provider.dart';
 import 'package:explorervotreville/services/wikimedia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -38,7 +39,11 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   bool _loadingMeteo = false;
 
   // Lieux par ville (clé: "Nom,Pays")
-  final Map<String, List<Lieu>> _lieuxParVille = {};
+  List<Lieu> get _lieuxPourVilleSelectionnee {
+    final cle = _villeSelectionnee?.cle;
+    if (cle == null) return [];
+    return context.watch<LieuxProvider>().lieuxPourVille(cle);
+  }
 
   // Suggestions de villes (autocomplétion)
   List<VilleResultat> _suggestions = [];
@@ -78,12 +83,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   void dispose() {
     _villeController.dispose();
     super.dispose();
-  }
-
-  List<Lieu> get _lieuxPourVilleSelectionnee {
-    final cle = _villeSelectionnee?.cle; // cle = nom,pays
-    if (cle == null) return [];
-    return _lieuxParVille[cle] ?? [];
   }
 
   // autocomplétion à partir de 3 lettres
@@ -224,22 +223,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur météo : $e')));
     }
-  }
-
-  void _mettreAJourLieu(Lieu ancien, Lieu nouveau) {
-    final cle = ancien.cleVille; // ex: "Paris,FR"
-    final liste = _lieuxParVille[cle];
-    if (liste == null) return;
-
-    final index = liste.indexOf(ancien); // cherche la pos de l'objet ancien
-    if (index == -1) return; // s'il n'est pas trouvé = -1 (on ne fait rien)
-
-    setState(() {
-      liste[index] = nouveau; //
-      _lieuxParVille[cle] = List.from(
-        liste,
-      ); // List.from au cas où le rebuild ne fonctionnerait pas juste avec l'affectation
-    });
   }
 
   Future<void> _getInitLocation() async {
@@ -516,26 +499,20 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     }
 
                     final cle = _villeSelectionnee!.cle;
-                    final liste = _lieuxParVille[cle] ?? [];
-
-                    setState(() {
-                      liste.add(
-                        Lieu(
-                          titre: titre,
-                          categorie: cat,
-                          cleVille: cle,
-                          imageUrl: img.isEmpty ? null : img,
-                          adresse:
-                              adresseComplete ??
-                              (adresseSaisie.isEmpty ? null : adresseSaisie),
-                          latitude: lat,
-                          longitude: lon,
-                          description: description.isEmpty ? null : description,
-                        ),
-                      );
-                      _lieuxParVille[cle] = liste;
-                    });
-
+                    context.read<LieuxProvider>().ajouterLieu(
+                      Lieu(
+                        titre: titre,
+                        categorie: cat,
+                        cleVille: cle,
+                        imageUrl: img.isEmpty ? null : img,
+                        adresse:
+                            adresseComplete ??
+                            (adresseSaisie.isEmpty ? null : adresseSaisie),
+                        latitude: lat,
+                        longitude: lon,
+                        description: description.isEmpty ? null : description,
+                      ),
+                    );
                     Navigator.of(ctx).pop();
                   },
                   child: const Text('Ajouter'),
@@ -866,18 +843,17 @@ class _LieuCard extends StatelessWidget {
       onTap: () async {
         // On récupère navigator et state avant l'await car context dans await peut être problématique
         final navigator = Navigator.of(context);
-        //Récupérer le parent PagePrincipale pour mettre à jour les lieux
-        final state = context.findAncestorStateOfType<_PagePrincipaleState>();
 
         final resultat = await navigator.pushNamed(
           '/page_detail',
           arguments: lieu,
         );
 
-        if (resultat is Lieu && state != null) {
-          state._mettreAJourLieu(lieu, resultat);
+        if (resultat is Lieu) {
+          context.read<LieuxProvider>().mettreAJourLieu(lieu, resultat);
         }
       },
+
       borderRadius: BorderRadius.circular(16),
       child: Card(
         margin: const EdgeInsets.symmetric(vertical: 8),
