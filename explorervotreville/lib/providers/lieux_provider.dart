@@ -1,49 +1,47 @@
 import 'package:flutter/foundation.dart';
 
 import '../models/lieu.dart';
+import '../repositories/lieu_repository.dart';
 
 class LieuxProvider extends ChangeNotifier {
-  final Map<String, List<Lieu>> _lieuxParVille = {};
+  final _repo = LieuRepository();
+  final Map<String, List<Lieu>> _cache = {};
 
-  // Lecture (on renvoie une copie non modifiable)
   List<Lieu> lieuxPourVille(String cleVille) {
-    final list = _lieuxParVille[cleVille] ?? [];
-    return List.unmodifiable(list);
+    return List.unmodifiable(_cache[cleVille] ?? []);
   }
 
-  void ajouterLieu(Lieu lieu) {
-    final cle = lieu.cleVille;
-    final list = _lieuxParVille[cle] ?? [];
-    _lieuxParVille[cle] = [...list, lieu];
+  Future<void> chargerVille(String cleVille) async {
+    final lieux = await _repo.getLieuxPourVille(cleVille);
+    _cache[cleVille] = lieux;
     notifyListeners();
   }
 
-  void mettreAJourLieu(Lieu ancien, Lieu nouveau) {
-    final cle = ancien.cleVille;
-    final list = _lieuxParVille[cle];
+  Future<void> ajouterLieu(Lieu lieu) async {
+    final saved = await _repo.insertLieu(lieu);
+    final list = _cache[lieu.cleVille] ?? [];
+    _cache[lieu.cleVille] = [...list, saved];
+    notifyListeners();
+  }
+
+  Future<void> mettreAJourLieu(Lieu lieu) async {
+    await _repo.updateLieu(lieu);
+    final list = _cache[lieu.cleVille];
     if (list == null) return;
 
-    final index = list.indexOf(ancien);
+    final index = list.indexWhere((l) => l.id == lieu.id);
     if (index == -1) return;
 
-    final copy = List<Lieu>.from(list);
-    copy[index] = nouveau;
-    _lieuxParVille[cle] = copy;
+    final copy = [...list];
+    copy[index] = lieu;
+    _cache[lieu.cleVille] = copy;
     notifyListeners();
   }
 
-  void supprimerLieu(Lieu lieu) {
-    final cle = lieu.cleVille;
-    final list = _lieuxParVille[cle];
-    if (list == null) return;
-
-    _lieuxParVille[cle] = list.where((x) => x != lieu).toList();
-    notifyListeners();
-  }
-
-  // clear pour debug (optionnel si jamais on en a besoin)
-  void clearAll() {
-    _lieuxParVille.clear();
+  Future<void> supprimerLieu(Lieu lieu) async {
+    if (lieu.id == null) return;
+    await _repo.deleteLieu(lieu.id!);
+    _cache[lieu.cleVille]?.removeWhere((l) => l.id == lieu.id);
     notifyListeners();
   }
 }

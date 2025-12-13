@@ -171,6 +171,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       _center = newCenter;
     });
     _mapController.move(newCenter, 12.0);
+    // pour charger les lieux
+    await context.read<LieuxProvider>().chargerVille(ville.cle);
     await _chargerMeteoPourVille(ville);
     //ajoute en historique
     await context.read<SettingsProvider>().addRecentCity(ville);
@@ -459,8 +461,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     String? adresseComplete;
 
                     //  On choisit quoi envoyer à Nominatim :
-                    //  - si l'utilisateur a mis une adresse : on la prend
-                    //  - sinon : on essaye avec le titre du lieu (pour les lieux connus aucun problème)
+                    //  - l'utilisateur a mis une adresse : on la prend
+                    //  - on essaye avec le titre du lieu (pour les lieux connus aucun problème)
                     //  - Priorité à la position choisie sur la carte
                     if (positionSelectionnee != null) {
                       lat = positionSelectionnee!.latitude;
@@ -638,7 +640,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
               const SizedBox(height: 16),
               //map
-              Expanded(
+              SizedBox(
+                height: 250,
                 child: FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(initialCenter: _center, initialZoom: 9.0),
@@ -850,7 +853,7 @@ class _LieuCard extends StatelessWidget {
         );
 
         if (resultat is Lieu) {
-          context.read<LieuxProvider>().mettreAJourLieu(lieu, resultat);
+          context.read<LieuxProvider>().mettreAJourLieu(resultat);
         }
       },
 
