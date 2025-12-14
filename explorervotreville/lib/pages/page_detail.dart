@@ -3,8 +3,12 @@ import 'package:explorervotreville/services/villes_meteo_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
 
+import '../models/commentaire.dart';
 import '../models/lieu.dart';
+import '../providers/lieux_provider.dart';
+import '../repositories/commentaire_repository.dart';
 
 class PageDetail extends StatefulWidget {
   final Lieu lieu;
@@ -30,11 +34,13 @@ class _PageDetailState extends State<PageDetail>
   late LatLng _center;
   bool _positionConnue = false;
 
-  final List<_Commentaire> _commentaires = [];
-
   late Lieu _lieuActuel; // copie locale modifiable
   String? _adresseActuelle;
   final Map_api _mapApi = Map_api();
+
+  final _commentRepo = CommentaireRepository();
+  List<Commentaire> _commentaires = []; // local
+  bool _deleted = false;
 
   @override
   void initState() {
@@ -75,6 +81,9 @@ class _PageDetailState extends State<PageDetail>
         ); // de bas en haut
 
     _controller.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chargerCommentaires();
+    });
   }
 
   @override
@@ -84,20 +93,69 @@ class _PageDetailState extends State<PageDetail>
     super.dispose();
   }
 
-  void _ajouterCommentaire() {
+  Future<void> _ajouterCommentaire() async {
     final texte = _commentController.text.trim();
     if (texte.isEmpty) return;
 
-    setState(() {
-      _commentaires.add(
-        _Commentaire(texte: texte, note: _noteCourante, date: DateTime.now()),
+    final lieuId = _lieuActuel.id;
+    if (lieuId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Impossible d'ajouter un commentaire : lieu non sauvegardé.",
+          ),
+        ),
       );
+      return;
+    }
 
-      final total = _commentaires.fold<double>(0, (sum, c) => sum + c.note);
-      _noteMoyenne = total / _commentaires.length;
+    final nouveau = Commentaire(
+      lieuId: lieuId,
+      texte: texte,
+      note: _noteCourante,
+      date: DateTime.now(),
+    );
 
+    final saved = await _commentRepo.insert(nouveau);
+    if (!mounted) return; // widget toujours présent
+
+    // On met à jour la liste localement sans recharger toute la DB
+    final updated = [saved, ..._commentaires];
+
+    final moyenne =
+        updated.fold<double>(0, (sum, c) => sum + c.note) / updated.length;
+
+    setState(() {
+      _commentaires = updated;
+      _noteMoyenne = moyenne;
+      _noteCourante = moyenne;
       _commentController.clear();
-      _noteCourante = _noteMoyenne;
+    });
+  }
+
+  Future<void> _chargerCommentaires() async {
+    final lieuId = _lieuActuel.id;
+    if (lieuId == null) {
+      // Lieu pas encore en bdd. On laisse vide.
+      setState(() {
+        _commentaires = [];
+        _noteMoyenne = 3.0;
+        _noteCourante = 3.0;
+      });
+      return;
+    }
+
+    final list = await _commentRepo.getByLieuId(lieuId);
+    if (!mounted) return;
+
+    final moyenne = list.isEmpty
+        ? 3.0
+        : list.fold<double>(0, (sum, c) => sum + c.note) / list.length;
+
+    setState(() {
+      _commentaires = list;
+      _noteMoyenne = moyenne;
+      _noteCourante = moyenne;
     });
   }
 
@@ -165,6 +223,7 @@ class _PageDetailState extends State<PageDetail>
       _positionConnue = true;
 
       _lieuActuel = Lieu(
+        id: lieu.id,
         titre: lieu.titre,
         categorie: lieu.categorie,
         cleVille: lieu.cleVille,
@@ -186,6 +245,49 @@ class _PageDetailState extends State<PageDetail>
     );
   }
 
+  Future<void> _supprimerLieu() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer ce lieu ?'),
+        content: const Text(
+          "Cette action est définitive. Les commentaires associés seront aussi supprimés.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    // si le lieu n'a pas d'id, on ne peut pas supprimer en DB
+    if (_lieuActuel.id == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Suppression impossible : lieu non sauvegardé."),
+        ),
+      );
+      return;
+    }
+
+    await context.read<LieuxProvider>().supprimerLieu(_lieuActuel);
+
+    if (!mounted) return;
+    _deleted = true;
+
+    // On retourne à la page principale (sans renvoyer de lieu modifié)
+    Navigator.pop(context, null);
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -195,12 +297,25 @@ class _PageDetailState extends State<PageDetail>
       canPop: false, // Empêche le pop automatique
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
-          // Quand l'utilisateur quitte, on renvoie le lieu mis à jour
-          Navigator.pop(context, _lieuActuel);
+          if (_deleted) {
+            Navigator.pop(context, null);
+          } else {
+            // Quand l'utilisateur quitte, on renvoie le lieu mis à jour
+            Navigator.pop(context, _lieuActuel);
+          }
         }
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(lieu.titre)),
+        appBar: AppBar(
+          title: Text(lieu.titre),
+          actions: [
+            IconButton(
+              tooltip: 'Supprimer ce lieu',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _supprimerLieu,
+            ),
+          ],
+        ),
         body: SafeArea(
           child: FadeTransition(
             opacity: _fadeAnimation,
@@ -552,18 +667,8 @@ VilleResultat _reconstruireVilleDepuisLieu(Lieu lieu) {
   );
 }
 
-// Commentaires
-
-class _Commentaire {
-  final String texte;
-  final double note;
-  final DateTime date;
-
-  _Commentaire({required this.texte, required this.note, required this.date});
-}
-
 class _CommentaireCard extends StatelessWidget {
-  final _Commentaire commentaire;
+  final Commentaire commentaire;
 
   const _CommentaireCard({required this.commentaire});
 
@@ -581,7 +686,6 @@ class _CommentaireCard extends StatelessWidget {
           children: [
             Icon(Icons.person, color: cs.primary),
             const SizedBox(width: 8),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,15 +703,13 @@ class _CommentaireCard extends StatelessWidget {
                       const Spacer(),
                       Text(
                         _formatDate(commentaire.date),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: cs.outline,
-                        ), // outline = grisé
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: cs.outline),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     commentaire.texte,
                     style: Theme.of(context).textTheme.bodyMedium,
@@ -622,11 +724,9 @@ class _CommentaireCard extends StatelessWidget {
   }
 
   String _formatDate(DateTime d) {
-    // format simple JJ/MM/AA  ,padleft ajoute 0 si le jour est < 10
     final day = d.day.toString().padLeft(2, '0');
     final month = d.month.toString().padLeft(2, '0');
     final year = d.year.toString();
-
     return '$day/$month/$year';
   }
 }
