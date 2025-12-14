@@ -25,6 +25,10 @@ class LieuxProvider extends ChangeNotifier {
   }
 
   Future<void> mettreAJourLieu(Lieu lieu) async {
+    if (lieu.id == null) {
+      debugPrint('Tentative de mise à jour d’un lieu sans id (non persisté)');
+      return;
+    }
     await _repo.updateLieu(lieu);
     final list = _cache[lieu.cleVille];
     if (list == null) return;
