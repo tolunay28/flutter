@@ -13,7 +13,7 @@ class AdresseResultat {
 }
 
 class Map_api {
-  // 1. Gérer la permission et récupérer la position GPS actuelle
+  // Gérer la permission et récupérer la position GPS actuelle
   Future<LatLng?> getCurrentPosition() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -37,7 +37,7 @@ class Map_api {
     return LatLng(position.latitude, position.longitude);
   }
 
-  // 2. Transformer un nom de ville en coordonnées (Nominatim)
+  // Transformer un nom de ville en coordonnées (Nominatim)
   Future<LatLng?> getCoordinatesFromCity(String city) async {
     final url = Uri.parse(
       'https://nominatim.openstreetmap.org/search?q=$city&format=json&limit=1',

@@ -9,7 +9,7 @@ class WikimediaApi {
   }) async {
     if (titreLieu.trim().isEmpty) return null;
 
-    // 1) On cherche la page la plus pertinente pour ce titre
+    // On cherche la page la plus pertinente pour ce titre
     final baseUrl = 'https://$langue.wikipedia.org/w/api.php';
 
     final searchUrl = Uri.parse(
@@ -19,7 +19,7 @@ class WikimediaApi {
       '&list=search' // liste de recherche des res
       '&srsearch=${Uri.encodeComponent(titreLieu)}'
       '&srlimit=1' // prend le 1er res
-      '&origin=*', // utile pour le web (CORS)
+      '&origin=*',
     );
 
     final searchResp = await http.get(searchUrl);
@@ -36,7 +36,7 @@ class WikimediaApi {
     final firstResult = searchList.first as Map<String, dynamic>;
     final pageTitle = firstResult['title'] as String;
 
-    // 2) On récupère l'image (thumbnail) de cette page
+    // On récupère l'image (thumbnail) de cette page
     final imageUrl = Uri.parse(
       '$baseUrl'
       '?action=query'

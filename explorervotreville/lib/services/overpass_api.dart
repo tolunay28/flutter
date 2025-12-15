@@ -75,7 +75,7 @@ out center 40;
       final name = (tags['name'] as String?)?.trim();
       if (name == null || name.isEmpty) continue;
 
-      // coords: node => lat/lon, way/relation => center.lat/center.lon
+      // coords: node -> lat/lon, way/relation -> center.lat/center.lon
       double? lat = (el['lat'] as num?)?.toDouble();
       double? lon = (el['lon'] as num?)?.toDouble();
 

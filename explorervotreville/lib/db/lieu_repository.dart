@@ -2,7 +2,10 @@ import '../models/lieu.dart';
 import 'app_database.dart';
 
 class LieuRepository {
-  Future<List<Lieu>> getLieuxPourVille(String cleVille) async {
+  Future<List<Lieu>> getLieuxPourVille(String? cleVille) async {
+    if (cleVille == null || cleVille.trim().isEmpty) {
+      return [];
+    }
     final db = await AppDatabase.database;
     final maps = await db.query(
       'lieux',

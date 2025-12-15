@@ -62,13 +62,19 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   // Enregistre la ville par défaut + la met aussi en tête de l’historique
-  Future<void> setDefaultCity(VilleResultat ville) async {
+  Future<void> setDefaultCity(VilleResultat? ville) async {
     _defaultCity = ville;
-    _pushRecent(ville); // on la met aussi dans l’historique
+    if (ville != null) {
+      _pushRecent(ville); // on la met aussi dans l’historique
+    }
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kDefaultCity, _villeToJson(ville));
+    if (ville == null) {
+      await prefs.remove(_kDefaultCity);
+    } else {
+      await prefs.setString(_kDefaultCity, _villeToJson(ville));
+    }
     await prefs.setStringList(
       _kRecentCities,
       _recentCities.map(_villeToJson).toList(),
@@ -87,7 +93,7 @@ class SettingsProvider extends ChangeNotifier {
     );
   }
 
-  // Vide l’historique
+  // vide l’historique
   Future<void> clearRecentCities() async {
     _recentCities.clear();
     notifyListeners();
@@ -162,7 +168,7 @@ class SettingsProvider extends ChangeNotifier {
     );
   }
 
-  /// Remplace toute la liste d'un coup (pratique pour la page Favoris)
+  // Remplace toute la liste d'un coup (pratique pour la page Favoris)
   Future<void> setFavoriteCities(List<VilleResultat> villes) async {
     _favoriteCities
       ..clear()

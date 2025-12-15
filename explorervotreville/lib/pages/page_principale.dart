@@ -11,7 +11,6 @@ import '../providers/setting_provider.dart';
 import '../services/map_api.dart';
 import '../services/villes_meteo_api.dart';
 
-// modif pageprincipale avant c'était mainpage
 class PagePrincipale extends StatefulWidget {
   const PagePrincipale({super.key});
 
@@ -62,17 +61,14 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     super.initState();
     _getInitLocation();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       // attend que la page avant d'executer le code en dessous
       final saved = context.read<SettingsProvider>().defaultCity;
       if (saved != null) {
-        _choisirVille(saved);
+        await _choisirVille(saved);
       }
     });
   }
-
-  // bouton recherche ou submit -> déplacé dans _VilleSearchBox
-  // autocomplétion -> déplacée dans _VilleSearchBox
 
   Future<void> _choisirVille(VilleResultat ville) async {
     final newCenter = LatLng(ville.lat, ville.lon);
@@ -80,8 +76,9 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     setState(() {
       _villeSelectionnee = ville;
       _center = newCenter;
-      // la searchbox s’occupe de son texte et de ses suggestions
-      // donc plus besoin de _villeController/_suggestions ici
+      _discoverResults = [];
+      _discoverCenter = null;
+      _loadingDiscover = false;
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,6 +94,14 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
     //ajoute en historique
     await context.read<SettingsProvider>().addRecentCity(ville);
+  }
+
+  bool _lieuDejaAjoute(Lieu candidat, List<Lieu> lieuxEnregistres) {
+    return lieuxEnregistres.any(
+      (l) =>
+          l.cleVille == candidat.cleVille &&
+          l.titre.toLowerCase().trim() == candidat.titre.toLowerCase().trim(),
+    );
   }
 
   Future<void> _chargerMeteoPourVille(VilleResultat ville) async {
@@ -133,7 +138,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       if (position != null) {
         setState(() {
           _center = position;
-          // Plus besoin de gérer _latitude/_longitude en String séparés car LatLng est partout
         });
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -365,7 +369,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     //  On choisit quoi envoyer à Nominatim :
                     //  - l'utilisateur a mis une adresse : on la prend
                     //  - on essaye avec le titre du lieu (pour les lieux connus aucun problème)
-                    //  - Priorité à la position choisie sur la carte
+                    //  - priorité à la position choisie sur la carte
                     if (positionSelectionnee != null) {
                       lat = positionSelectionnee!.latitude;
                       lon = positionSelectionnee!.longitude;
@@ -417,6 +421,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                         description: description.isEmpty ? null : description,
                       ),
                     );
+
                     Navigator.of(ctx).pop();
                   },
                   child: const Text('Ajouter'),
@@ -434,9 +439,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final ville = _villeSelectionnee;
-
     final lieuxVille = ville != null
-        ? context.read<LieuxProvider>().lieuxPourVille(ville.cle)
+        ? context.watch<LieuxProvider>().lieuxPourVille(ville.cle)
         : <Lieu>[];
 
     final sp = context.watch<SettingsProvider>();
@@ -494,77 +498,89 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
               const SizedBox(height: 16),
 
-              //map
-              SizedBox(
-                height: 250,
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(initialCenter: _center, initialZoom: 9.0),
-                  children: [
-                    TileLayer(
-                      urlTemplate:
-                          "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-                      retinaMode: true,
-                      subdomains: const ['a', 'b', 'c', 'd'],
-                      // attributionBuilder: (_) {
-                      //   return Text("© OpenStreetMap contributors | © Carto");
-                      // },
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        // marker de la ville (position courante)
-                        Marker(
-                          point: _center,
-                          width: 40,
-                          height: 40,
-                          child: const Icon(
-                            Icons.location_city,
-                            size: 35,
-                            color: Colors.red,
-                          ),
-                        ),
+              // On met la map dans un Consumer pour que les markers se mettent à jour après ajout
+              Consumer<LieuxProvider>(
+                builder: (context, lp, _) {
+                  final lieuxVille = ville != null
+                      ? lp.lieuxPourVille(ville.cle)
+                      : <Lieu>[];
 
-                        // markers pour les lieux de la ville
-                        if (ville != null)
-                          ...lieuxVille
-                              // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
-                              .where(
-                                (l) =>
-                                    l.latitude != null && l.longitude != null,
-                              )
-                              .map(
-                                (lieu) => Marker(
-                                  width: 40,
-                                  height: 40,
-                                  point: LatLng(
-                                    lieu.latitude!,
-                                    lieu.longitude!,
-                                  ),
-                                  child: GestureDetector(
-                                    onTap: () async {
-                                      final res = await Navigator.pushNamed(
-                                        context,
-                                        '/page_detail',
-                                        arguments: lieu,
-                                      );
-                                      if (res is Lieu) {
-                                        await context
-                                            .read<LieuxProvider>()
-                                            .mettreAJourLieu(res);
-                                      }
-                                    },
-                                    child: const Icon(
-                                      Icons.place,
-                                      size: 34,
-                                      color: Colors.green,
+                  return SizedBox(
+                    height: 250,
+                    child: FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _center,
+                        initialZoom: 9.0,
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+                          retinaMode: true,
+                          subdomains: const ['a', 'b', 'c', 'd'],
+                          // attributionBuilder: (_) {
+                          //   return Text("© OpenStreetMap contributors | © Carto");
+                          // },
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            // marker de la ville (position courante)
+                            Marker(
+                              point: _center,
+                              width: 40,
+                              height: 40,
+                              child: const Icon(
+                                Icons.location_city,
+                                size: 35,
+                                color: Colors.red,
+                              ),
+                            ),
+
+                            // markers pour les lieux de la ville
+                            if (ville != null)
+                              ...lieuxVille
+                                  // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
+                                  .where(
+                                    (l) =>
+                                        l.latitude != null &&
+                                        l.longitude != null,
+                                  )
+                                  .map(
+                                    (lieu) => Marker(
+                                      width: 40,
+                                      height: 40,
+                                      point: LatLng(
+                                        lieu.latitude!,
+                                        lieu.longitude!,
+                                      ),
+                                      child: GestureDetector(
+                                        onTap: () async {
+                                          final res = await Navigator.pushNamed(
+                                            context,
+                                            '/page_detail',
+                                            arguments: lieu,
+                                          );
+                                          if (res is Lieu) {
+                                            await context
+                                                .read<LieuxProvider>()
+                                                .mettreAJourLieu(res);
+                                          }
+                                        },
+                                        child: const Icon(
+                                          Icons.place,
+                                          size: 34,
+                                          color: Colors.green,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               // Ville + météo
@@ -785,14 +801,21 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
                       final poi = _discoverResults[i];
+                      final dejaAjoute = _lieuDejaAjoute(poi, lieuxVille);
+
                       return Card(
                         child: ListTile(
                           leading: const Icon(Icons.place_outlined),
                           title: Text(poi.titre),
                           subtitle: Text(poi.adresse ?? 'Adresse inconnue'),
                           trailing: IconButton(
-                            tooltip: 'Ajouter aux lieux enregistrés',
-                            icon: const Icon(Icons.star_border),
+                            tooltip: dejaAjoute
+                                ? 'Lieu déjà ajouté'
+                                : 'Ajouter aux lieux enregistrés',
+                            icon: Icon(
+                              dejaAjoute ? Icons.star : Icons.star_border,
+                              color: dejaAjoute ? Colors.amber : null,
+                            ),
                             onPressed: () async {
                               final imageUrl = await _wikimediaApi
                                   .chercherImagePourLieu(poi.titre);
@@ -846,45 +869,57 @@ class _PagePrincipaleState extends State<PagePrincipale> {
               const SizedBox(height: 8),
 
               // Liste des lieux
-              if (ville == null)
-                const Center(
-                  child: Text('Recherchez une ville pour commencer.'),
-                )
-              else if (lieuxVille.isEmpty)
-                Center(
-                  child: Text(
-                    'Aucun lieu enregistré pour cette ville.\nAjoutez-en avec le bouton +',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                )
-              else
-                GridView.builder(
-                  shrinkWrap: true, // prend la taille nécessaire
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: EdgeInsets.zero,
-                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 320, // largeur max d’une carte
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio:
-                        0.75, // ajuste la forme (plus ou moins haute)
-                  ),
-                  itemCount: lieuxVille.length,
-                  itemBuilder: (context, index) {
-                    final lieu = lieuxVille[index];
-                    return TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.95, end: 1),
-                      duration: Duration(
-                        milliseconds: 250 + index * 40,
-                      ), // ajoute 40 ms pour chaque lieu a l'affichage
-                      builder: (context, valeur, child) {
-                        return Transform.scale(scale: valeur, child: child);
-                      },
-                      child: _LieuCard(lieu: lieu),
+              Consumer<LieuxProvider>(
+                builder: (context, lp, _) {
+                  final lieuxVille = ville != null
+                      ? lp.lieuxPourVille(ville.cle)
+                      : <Lieu>[];
+
+                  if (ville == null) {
+                    return const Center(
+                      child: Text('Recherchez une ville pour commencer.'),
                     );
-                  },
-                ),
+                  }
+
+                  if (lieuxVille.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Aucun lieu enregistré pour cette ville.\nAjoutez-en avec le bouton +',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    );
+                  }
+
+                  return GridView.builder(
+                    shrinkWrap: true, // prend la taille nécessaire
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 320, // largeur max d’une carte
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio:
+                              0.75, // ajuste la forme (plus ou moins haute)
+                        ),
+                    itemCount: lieuxVille.length,
+                    itemBuilder: (context, index) {
+                      final lieu = lieuxVille[index];
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0.95, end: 1),
+                        duration: Duration(
+                          milliseconds: 250 + index * 40,
+                        ), // ajoute 40 ms pour chaque lieu a l'affichage
+                        builder: (context, valeur, child) {
+                          return Transform.scale(scale: valeur, child: child);
+                        },
+                        child: _LieuCard(lieu: lieu),
+                      );
+                    },
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -1156,19 +1191,22 @@ class _LieuCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(16),
               ),
-              child: lieu.imageUrl != null
-                  ? Image.network(
-                      lieu.imageUrl!,
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.contain,
-                    )
-                  : Container(
-                      height: 160,
-                      width: double.infinity,
-                      color: cs.surfaceContainerHighest,
-                      child: const Icon(Icons.photo, size: 48),
-                    ),
+              child: Hero(
+                tag: 'lieu-image-${lieu.id ?? lieu.cleVille}-${lieu.titre}',
+                child: lieu.imageUrl != null
+                    ? Image.network(
+                        lieu.imageUrl!,
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.contain,
+                      )
+                    : Container(
+                        height: 160,
+                        width: double.infinity,
+                        color: cs.surfaceContainerHighest,
+                        child: const Icon(Icons.photo, size: 48),
+                      ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(12),

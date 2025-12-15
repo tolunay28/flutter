@@ -7,7 +7,7 @@ class PageAccueil extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme; // eviter repet de cette ligne
+    final cs = Theme.of(context).colorScheme; // eviter repeter de cette ligne
 
     return Scaffold(
       backgroundColor:

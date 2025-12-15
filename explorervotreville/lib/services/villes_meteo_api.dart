@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Modèle pour une ville trouvée par l’API
+// Modèle pour une ville trouvée par l’API
 class VilleResultat {
   final String nom;
   final String pays;
@@ -28,7 +28,7 @@ class VilleResultat {
   }
 }
 
-/// Modèle pour la météo actuelle
+// Modèle pour la météo actuelle
 class MeteoActuelle {
   final double temp;
   final double tempMin;
@@ -43,7 +43,7 @@ class MeteoActuelle {
   });
 }
 
-/// Service qui appelle OpenWeatherMap pour les villes et la météo
+// Service qui appelle OpenWeatherMap pour les villes et la météo
 class VillesMeteoApi {
   static const String _apiKey = String.fromEnvironment('OPENWEATHER_API_KEY');
 
@@ -51,7 +51,7 @@ class VillesMeteoApi {
 
   VillesMeteoApi({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Recherche des villes par nom (géocodage direct)
+  // Recherche des villes par nom (géocodage direct)
   Future<List<VilleResultat>> rechercherVilles(String nomVille) async {
     final uri = Uri.https('api.openweathermap.org', '/geo/1.0/direct', {
       'q': nomVille,
@@ -70,7 +70,7 @@ class VillesMeteoApi {
         .toList();
   }
 
-  /// Météo actuelle pour une ville (par latitude / longitude)
+  // Météo actuelle pour une ville (par latitude / longitude)
   Future<MeteoActuelle> getMeteoPourVille(VilleResultat ville) async {
     final uri = Uri.https('api.openweathermap.org', '/data/2.5/weather', {
       'lat': ville.lat.toString(),

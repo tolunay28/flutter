@@ -195,7 +195,7 @@ class _PageDetailState extends State<PageDetail>
 
     if (saisie == null || saisie.isEmpty) return;
 
-    // On reconstruit une "ville" pour la requête (ex : Paris,FR) car dans pagedetail on a pas de ville juste le lieu
+    // On reconstruit une "ville" pour la requête (ex : Paris,FR) car dans pagedetail on n'a pas de ville juste le lieu
     final ville = _reconstruireVilleDepuisLieu(lieu);
 
     // Appel à Nominatim via Map_api
@@ -243,6 +243,73 @@ class _PageDetailState extends State<PageDetail>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Adresse mise à jour : ${resultat.displayName}")),
     );
+  }
+
+  void _modifierDescription() async {
+    final lieu = _lieuActuel;
+
+    // On part de la description actuelle si elle existe
+    final controller = TextEditingController(text: lieu.description ?? '');
+
+    final saisie = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Modifier la description du lieu"),
+          content: TextField(
+            controller: controller,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Description du lieu',
+              prefixIcon: Icon(Icons.description),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+              child: const Text('Valider'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    if (saisie == null) return;
+
+    final nouvelleDescription = saisie.isEmpty ? null : saisie;
+
+    // On met à jour localement
+    setState(() {
+      _lieuActuel = Lieu(
+        id: lieu.id,
+        titre: lieu.titre,
+        categorie: lieu.categorie,
+        cleVille: lieu.cleVille,
+        imageUrl: lieu.imageUrl,
+        description: nouvelleDescription, // mise à jour ici
+        adresse: lieu.adresse,
+        latitude: lieu.latitude,
+        longitude: lieu.longitude,
+      );
+    });
+
+    // On sauvegarde en base via le provider (si le lieu est déjà sauvegardé)
+    if (_lieuActuel.id != null) {
+      await context.read<LieuxProvider>().mettreAJourLieu(_lieuActuel);
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Description mise à jour ")));
   }
 
   Future<void> _supprimerLieu() async {
@@ -331,19 +398,24 @@ class _PageDetailState extends State<PageDetail>
                     ClipRRect(
                       // permet d'arrondir l'image (container a ces bords arrondi mais pas l'image)
                       borderRadius: BorderRadius.circular(16),
-                      child: lieu.imageUrl != null
-                          ? Image.network(
-                              lieu.imageUrl!,
-                              height: 220,
-                              width: double.infinity,
-                              fit: BoxFit.contain, // pareil dans page_principal
-                            )
-                          : Container(
-                              height: 220,
-                              width: double.infinity,
-                              color: cs.surfaceContainerHighest,
-                              child: const Icon(Icons.photo, size: 64),
-                            ),
+                      child: Hero(
+                        tag:
+                            'lieu-image-${lieu.id ?? lieu.cleVille}-${lieu.titre}',
+                        child: lieu.imageUrl != null
+                            ? Image.network(
+                                lieu.imageUrl!,
+                                height: 220,
+                                width: double.infinity,
+                                fit: BoxFit
+                                    .contain, // pareil dans page_principal
+                              )
+                            : Container(
+                                height: 220,
+                                width: double.infinity,
+                                color: cs.surfaceContainerHighest,
+                                child: const Icon(Icons.photo, size: 64),
+                              ),
+                      ),
                     ),
 
                     const SizedBox(height: 16),
@@ -450,11 +522,21 @@ class _PageDetailState extends State<PageDetail>
                     const SizedBox(height: 16),
 
                     //description
-                    Text(
-                      'Description',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Description',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: "Modifier la description",
+                          icon: const Icon(Icons.edit),
+                          onPressed: _modifierDescription,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
