@@ -41,10 +41,10 @@ class _PageVillesFavoritesState extends State<PageVillesFavorites> {
 
     return PopScope(
       canPop: true,
-      onPopInvokedWithResult: (didPop, result) {
+      onPopInvokedWithResult: (didPop, result) async {
         // Quand on quitte la page : suppression définitive des grises
         if (didPop) {
-          _commitOnExit();
+          await _commitOnExit();
         }
       },
       child: Scaffold(

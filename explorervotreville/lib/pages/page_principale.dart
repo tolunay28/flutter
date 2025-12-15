@@ -31,20 +31,13 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   LatLng _center = const LatLng(
     48.8566,
     2.3522,
-  ); // Coordonnées par défaut : Paris
+  ); // Coordonnées par défaut, Paris
 
   VilleResultat? _villeSelectionnee;
   MeteoActuelle? _meteo;
 
   bool _loadingVille = false;
   bool _loadingMeteo = false;
-
-  // Lieux par ville (clé: "Nom,Pays")
-  List<Lieu> get _lieuxPourVilleSelectionnee {
-    final cle = _villeSelectionnee?.cle;
-    if (cle == null) return [];
-    return context.watch<LieuxProvider>().lieuxPourVille(cle);
-  }
 
   // Suggestions de villes (autocomplétion)
   List<VilleResultat> _suggestions = [];
@@ -178,7 +171,12 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       _villeController.text = ville.nom;
       _center = newCenter;
     });
-    _mapController.move(newCenter, 12.0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(newCenter, 12.0);
+    });
+
+    // read lit juste les données du provider, alors que watch s'"abonne" et rebuild
     // pour charger les lieux
     await context.read<LieuxProvider>().chargerVille(ville.cle);
     await _chargerMeteoPourVille(ville);
@@ -245,7 +243,10 @@ class _PagePrincipaleState extends State<PagePrincipale> {
           _center = position;
           // Plus besoin de gérer _latitude/_longitude en String séparés car LatLng est partout
         });
-        _mapController.move(_center, 12.0);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _mapController.move(_center, 12.0);
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -540,8 +541,12 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final ville = _villeSelectionnee;
-    final lieuxVille = _lieuxPourVilleSelectionnee;
-    final recents = context.watch<SettingsProvider>().favoriteCities;
+    final lieuxVille = ville != null
+        ? context.read<LieuxProvider>().lieuxPourVille(ville.cle)
+        : <Lieu>[];
+    final recents = context.watch<SettingsProvider>().recentCities;
+    final sp = context.watch<SettingsProvider>();
+    final isFav = ville != null && sp.isFavoriteCity(ville);
 
     return Scaffold(
       appBar: AppBar(title: const Text('ExplorezVotreVille')),
@@ -687,7 +692,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
                         // markers pour les lieux de la ville
                         if (ville != null)
-                          ..._lieuxPourVilleSelectionnee // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
+                          ...lieuxVille // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
                               .where(
                                 (l) =>
                                     l.latitude != null && l.longitude != null,
@@ -780,6 +785,27 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                 ),
                             ],
                           ),
+                        ),
+                        // bouton favori
+                        Column(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                isFav ? Icons.star : Icons.star_border,
+                              ),
+                              color: isFav ? Colors.amber : null,
+                              tooltip: isFav
+                                  ? 'Retirer des favoris'
+                                  : 'Ajouter aux favoris',
+                              onPressed: () async {
+                                if (isFav) {
+                                  await sp.removeFavoriteCity(ville);
+                                } else {
+                                  await sp.addFavoriteCity(ville);
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1082,7 +1108,7 @@ class _LieuCard extends StatelessWidget {
                       lieu.imageUrl!,
                       height: 160,
                       width: double.infinity,
-                      fit: BoxFit.contain, // a mettre
+                      fit: BoxFit.contain,
                     )
                   : Container(
                       height: 160,

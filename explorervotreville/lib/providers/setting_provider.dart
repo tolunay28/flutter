@@ -11,17 +11,21 @@ class SettingsProvider extends ChangeNotifier {
   bool get darkMode => _darkMode;
   ThemeMode get themeMode => _darkMode ? ThemeMode.dark : ThemeMode.light;
 
-  //  ville par défaut + historique
+  //  ville par défaut (mise en avant)
   VilleResultat? _defaultCity; // dernière ville choisie
   VilleResultat? get defaultCity => _defaultCity;
 
-  final List<VilleResultat> _favoriteCities = []; // dernières recherches
+  final List<VilleResultat> _favoriteCities = []; // favoris
   List<VilleResultat> get favoriteCities => List.unmodifiable(_favoriteCities);
+
+  final List<VilleResultat> _recentCities = []; // dernières recherches
+  List<VilleResultat> get recentCities => List.unmodifiable(_recentCities);
 
   // Clés SharedPreferences
   static const _kDarkMode = 'darkMode';
   static const _kDefaultCity = 'defaultCity'; // JSON ville
-  static const _kFavoriteCities = 'recentCities'; // JSON list
+  static const _kFavoriteCities = 'favoriteCities'; // JSON list
+  static const _kRecentCities = 'recentCities';
 
   // À appeler au démarrage (dans main) pour charger les prefs
   Future<void> init() async {
@@ -34,11 +38,16 @@ class SettingsProvider extends ChangeNotifier {
     final defaultJson = prefs.getString(_kDefaultCity);
     _defaultCity = defaultJson == null ? null : _villeFromJson(defaultJson);
 
-    // dernières villes
+    // villes favorites
     final favList = prefs.getStringList(_kFavoriteCities) ?? [];
     _favoriteCities
       ..clear()
       ..addAll(favList.map(_villeFromJson).whereType<VilleResultat>());
+
+    final recentList = prefs.getStringList(_kRecentCities) ?? [];
+    _recentCities
+      ..clear()
+      ..addAll(recentList.map(_villeFromJson).whereType<VilleResultat>());
 
     notifyListeners();
   }
@@ -61,8 +70,8 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDefaultCity, _villeToJson(ville));
     await prefs.setStringList(
-      _kFavoriteCities,
-      _favoriteCities.map(_villeToJson).toList(),
+      _kRecentCities,
+      _recentCities.map(_villeToJson).toList(),
     );
   }
 
@@ -73,18 +82,18 @@ class SettingsProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
-      _kFavoriteCities,
-      _favoriteCities.map(_villeToJson).toList(),
+      _kRecentCities,
+      _recentCities.map(_villeToJson).toList(),
     );
   }
 
   // Vide l’historique
   Future<void> clearRecentCities() async {
-    _favoriteCities.clear();
+    _recentCities.clear();
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kFavoriteCities);
+    await prefs.remove(_kRecentCities);
   }
 
   //  Helpers JSON
@@ -115,8 +124,8 @@ class SettingsProvider extends ChangeNotifier {
 
   // Met la ville en tête, supprime doublon, limite taille
   void _pushRecent(VilleResultat ville) {
-    _favoriteCities.removeWhere((v) => v.cle == ville.cle);
-    _favoriteCities.insert(0, ville);
+    _recentCities.removeWhere((v) => v.cle == ville.cle);
+    _recentCities.insert(0, ville);
 
     const max = 5;
     // supprime entre max et .length
