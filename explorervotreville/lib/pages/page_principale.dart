@@ -20,9 +20,6 @@ class PagePrincipale extends StatefulWidget {
 }
 
 class _PagePrincipaleState extends State<PagePrincipale> {
-  final TextEditingController _villeController = TextEditingController(
-    text: '',
-  );
   final VillesMeteoApi _api = VillesMeteoApi();
   final Map_api _map_api = Map_api();
   final WikimediaApi _wikimediaApi = WikimediaApi();
@@ -36,13 +33,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   VilleResultat? _villeSelectionnee;
   MeteoActuelle? _meteo;
 
-  bool _loadingVille = false;
   bool _loadingMeteo = false;
-
-  // Suggestions de villes (autocomplétion)
-  List<VilleResultat> _suggestions = [];
-  bool _loadingSuggestions = false;
-  String _lastSuggestQuery = '';
 
   static const List<String> _categories = [
     'Musée',
@@ -80,97 +71,19 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     });
   }
 
-  @override
-  void dispose() {
-    _villeController.dispose();
-    super.dispose();
-  }
-
-  // autocomplétion à partir de 3 lettres
-  Future<void> _mettreAJourSuggestions(String input) async {
-    final q = input.trim();
-    if (q.length < 3) {
-      setState(() {
-        _suggestions = [];
-      });
-      return;
-    }
-
-    _lastSuggestQuery = q;
-    setState(() {
-      _loadingSuggestions = true;
-    });
-
-    try {
-      final resultats = await _api.rechercherVilles(q);
-      if (!mounted) return;
-
-      // Si entre-temps l'utilisateur a tapé autre chose, on ignore
-      if (q != _lastSuggestQuery) return;
-
-      setState(() {
-        _suggestions = resultats;
-        _loadingSuggestions = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loadingSuggestions = false;
-        _suggestions = [];
-      });
-    }
-  }
-
-  // bouton recherche ou submit
-  Future<void> _rechercherVille({String? forceNom}) async {
-    final nomSaisi = forceNom ?? _villeController.text.trim();
-    if (nomSaisi.isEmpty) return;
-
-    setState(() {
-      _loadingVille = true;
-    });
-
-    try {
-      final resultats = await _api.rechercherVilles(nomSaisi);
-
-      if (!mounted) return;
-
-      if (resultats.isEmpty) {
-        setState(() {
-          _loadingVille = false;
-        });
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Aucune ville trouvée')));
-        return;
-      }
-
-      if (resultats.length == 1) {
-        _choisirVille(resultats.first);
-      } else {
-        // Plusieurs villes : on propose un choix
-        _afficherDialogChoixVille(resultats);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loadingVille = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la recherche : $e')),
-      );
-    }
-  }
+  // bouton recherche ou submit -> déplacé dans _VilleSearchBox
+  // autocomplétion -> déplacée dans _VilleSearchBox
 
   Future<void> _choisirVille(VilleResultat ville) async {
     final newCenter = LatLng(ville.lat, ville.lon);
+
     setState(() {
       _villeSelectionnee = ville;
-      _loadingVille = false;
-      _suggestions = []; // on cache les suggestions après choix
-      _villeController.text = ville.nom;
       _center = newCenter;
+      // la searchbox s’occupe de son texte et de ses suggestions
+      // donc plus besoin de _villeController/_suggestions ici
     });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _mapController.move(newCenter, 12.0);
@@ -179,35 +92,11 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     // read lit juste les données du provider, alors que watch s'"abonne" et rebuild
     // pour charger les lieux
     await context.read<LieuxProvider>().chargerVille(ville.cle);
+
     await _chargerMeteoPourVille(ville);
+
     //ajoute en historique
     await context.read<SettingsProvider>().addRecentCity(ville);
-  }
-
-  Future<void> _afficherDialogChoixVille(List<VilleResultat> resultats) async {
-    final villeChoisie = await showDialog<VilleResultat>(
-      context: context,
-      builder: (ctx) {
-        return SimpleDialog(
-          title: const Text('Choisissez une ville'),
-          children: [
-            for (final v in resultats)
-              SimpleDialogOption(
-                onPressed: () => Navigator.of(ctx).pop(v),
-                child: Text('${v.nom} (${v.pays})'),
-              ),
-          ],
-        );
-      },
-    );
-
-    if (villeChoisie != null) {
-      await _choisirVille(villeChoisie);
-    } else {
-      setState(() {
-        _loadingVille = false;
-      });
-    }
   }
 
   Future<void> _chargerMeteoPourVille(VilleResultat ville) async {
@@ -218,15 +107,18 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     try {
       final meteo = await _api.getMeteoPourVille(ville);
       if (!mounted) return;
+
       setState(() {
         _meteo = meteo;
         _loadingMeteo = false;
       });
     } catch (e) {
       if (!mounted) return;
+
       setState(() {
         _loadingMeteo = false;
       });
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur météo : $e')));
@@ -243,6 +135,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
           _center = position;
           // Plus besoin de gérer _latitude/_longitude en String séparés car LatLng est partout
         });
+
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           _mapController.move(_center, 12.0);
@@ -541,11 +434,13 @@ class _PagePrincipaleState extends State<PagePrincipale> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final ville = _villeSelectionnee;
+
     final lieuxVille = ville != null
         ? context.read<LieuxProvider>().lieuxPourVille(ville.cle)
         : <Lieu>[];
-    final recents = context.watch<SettingsProvider>().recentCities;
+
     final sp = context.watch<SettingsProvider>();
+    final recents = sp.recentCities;
     final isFav = ville != null && sp.isFavoriteCity(ville);
 
     return Scaffold(
@@ -589,77 +484,16 @@ class _PagePrincipaleState extends State<PagePrincipale> {
           padding: const EdgeInsets.all(16),
           child: ListView(
             children: [
-              // Champ de saisie ville
-              TextField(
-                controller: _villeController,
-                decoration: InputDecoration(
-                  labelText: 'Rechercher une ville',
-                  prefixIcon: const Icon(Icons.location_city),
-                  suffixIcon: _loadingVille
-                      ? const Padding(
-                          padding: EdgeInsets.all(10),
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      : IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: _rechercherVille,
-                        ),
-                  border: const OutlineInputBorder(),
-                ),
-                textInputAction: TextInputAction.search,
-                onChanged: _mettreAJourSuggestions, // autocomplétion
-                onSubmitted: (_) => _rechercherVille(),
+              // champ de saisie ville
+              // séparé pour éviter que la map rebuild à chaque lettre
+              _VilleSearchBox(
+                api: _api,
+                recents: recents,
+                onVilleChoisie: _choisirVille,
               ),
 
-              // Suggestions de villes
-              if (_loadingSuggestions)
-                const Padding(
-                  padding: EdgeInsets.only(top: 4),
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-              if (_suggestions.isNotEmpty)
-                Card(
-                  margin: const EdgeInsets.only(top: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 200),
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: _suggestions.length,
-                      itemBuilder: (context, index) {
-                        final v = _suggestions[index];
-                        return ListTile(
-                          leading: const Icon(Icons.location_on),
-                          title: Text('${v.nom} (${v.pays})'),
-                          onTap: () async =>
-                              await _choisirVille(v), // clique suggestion
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              // villes récentes
-              if (recents.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8, // hor
-                  runSpacing: 8, // vertical
-                  children: recents.take(5).map((v) {
-                    return ActionChip(
-                      label: Text('${v.nom} (${v.pays})'),
-                      onPressed: () async => await _choisirVille(v),
-                    );
-                  }).toList(),
-                ),
-              ],
-
               const SizedBox(height: 16),
+
               //map
               SizedBox(
                 height: 250,
@@ -692,7 +526,8 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
                         // markers pour les lieux de la ville
                         if (ville != null)
-                          ...lieuxVille // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
+                          ...lieuxVille
+                              // markers attend une liste d'objet, (...)on la génére avec les lieux de la ville
                               .where(
                                 (l) =>
                                     l.latitude != null && l.longitude != null,
@@ -718,7 +553,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                             .mettreAJourLieu(res);
                                       }
                                     },
-
                                     child: const Icon(
                                       Icons.place,
                                       size: 34,
@@ -907,7 +741,9 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                               final center =
                                   _discoverCenter ??
                                   LatLng(ville.lat, ville.lon);
+
                               setState(() => _loadingDiscover = true);
+
                               try {
                                 final res = await _overpass
                                     .rechercherLieuxAutour(
@@ -916,14 +752,18 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                       categorie: _discoverCategorie,
                                       cleVille: ville.cle,
                                     );
+
                                 if (!mounted) return;
+
                                 setState(() {
                                   _discoverResults = res;
                                   _loadingDiscover = false;
                                 });
                               } catch (e) {
                                 if (!mounted) return;
+
                                 setState(() => _loadingDiscover = false);
+
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('Erreur Overpass : $e'),
@@ -982,13 +822,6 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                         ? 'Lieu ajouté aux favoris'
                                         : 'Ce lieu est déjà enregistré',
                                   ),
-                                ),
-                              );
-
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Lieu ajouté aux favoris'),
                                 ),
                               );
                             },
@@ -1063,6 +896,226 @@ class _PagePrincipaleState extends State<PagePrincipale> {
         icon: const Icon(Icons.add_location_alt),
         label: const Text('Ajouter un lieu'),
       ),
+    );
+  }
+}
+
+// Widget séparé pour la searchbar, autocomplétion, recents
+class _VilleSearchBox extends StatefulWidget {
+  const _VilleSearchBox({
+    required this.api,
+    required this.recents,
+    required this.onVilleChoisie,
+  });
+
+  final VillesMeteoApi api;
+  final List<VilleResultat> recents;
+  final Future<void> Function(VilleResultat ville) onVilleChoisie;
+
+  @override
+  State<_VilleSearchBox> createState() => _VilleSearchBoxState();
+}
+
+class _VilleSearchBoxState extends State<_VilleSearchBox> {
+  final TextEditingController _villeController = TextEditingController(
+    text: '',
+  );
+
+  bool _loadingVille = false;
+
+  // Suggestions de villes (autocomplétion)
+  List<VilleResultat> _suggestions = [];
+  bool _loadingSuggestions = false;
+  String _lastSuggestQuery = '';
+
+  @override
+  void dispose() {
+    _villeController.dispose();
+    super.dispose();
+  }
+
+  // autocomplétion à partir de 3 lettres
+  Future<void> _mettreAJourSuggestions(String input) async {
+    final q = input.trim();
+    if (q.length < 3) {
+      setState(() {
+        _suggestions = [];
+      });
+      return;
+    }
+
+    _lastSuggestQuery = q;
+    setState(() {
+      _loadingSuggestions = true;
+    });
+
+    try {
+      final resultats = await widget.api.rechercherVilles(q);
+      if (!mounted) return;
+
+      // Si entre-temps l'utilisateur a tapé autre chose, on ignore
+      if (q != _lastSuggestQuery) return;
+
+      setState(() {
+        _suggestions = resultats;
+        _loadingSuggestions = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingSuggestions = false;
+        _suggestions = [];
+      });
+    }
+  }
+
+  // bouton recherche ou submit
+  Future<void> _rechercherVille({String? forceNom}) async {
+    final nomSaisi = forceNom ?? _villeController.text.trim();
+    if (nomSaisi.isEmpty) return;
+
+    setState(() {
+      _loadingVille = true;
+    });
+
+    try {
+      final resultats = await widget.api.rechercherVilles(nomSaisi);
+      if (!mounted) return;
+
+      if (resultats.isEmpty) {
+        setState(() {
+          _loadingVille = false;
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Aucune ville trouvée')));
+        return;
+      }
+
+      if (resultats.length == 1) {
+        await _choisirVille(resultats.first);
+      } else {
+        // Plusieurs villes : on propose un choix
+        final villeChoisie = await showDialog<VilleResultat>(
+          context: context,
+          builder: (ctx) {
+            return SimpleDialog(
+              title: const Text('Choisissez une ville'),
+              children: [
+                for (final v in resultats)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.of(ctx).pop(v),
+                    child: Text('${v.nom} (${v.pays})'),
+                  ),
+              ],
+            );
+          },
+        );
+
+        if (villeChoisie != null) {
+          await _choisirVille(villeChoisie);
+        } else {
+          setState(() {
+            _loadingVille = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingVille = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de la recherche : $e')),
+      );
+    }
+  }
+
+  Future<void> _choisirVille(VilleResultat v) async {
+    setState(() {
+      _loadingVille = false;
+      _suggestions = []; // on cache les suggestions après choix
+      _villeController.text = v.nom;
+    });
+
+    await widget.onVilleChoisie(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Champ de saisie ville
+        TextField(
+          controller: _villeController,
+          decoration: InputDecoration(
+            labelText: 'Rechercher une ville',
+            prefixIcon: const Icon(Icons.location_city),
+            suffixIcon: _loadingVille
+                ? const Padding(
+                    padding: EdgeInsets.all(10),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: _rechercherVille,
+                  ),
+            border: const OutlineInputBorder(),
+          ),
+          textInputAction: TextInputAction.search,
+          onChanged: _mettreAJourSuggestions, // autocomplétion
+          onSubmitted: (_) => _rechercherVille(),
+        ),
+
+        // Suggestions de villes
+        if (_loadingSuggestions)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: LinearProgressIndicator(minHeight: 2),
+          ),
+        if (_suggestions.isNotEmpty)
+          Card(
+            margin: const EdgeInsets.only(top: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _suggestions.length,
+                itemBuilder: (context, index) {
+                  final v = _suggestions[index];
+                  return ListTile(
+                    leading: const Icon(Icons.location_on),
+                    title: Text('${v.nom} (${v.pays})'),
+                    onTap: () async =>
+                        await _choisirVille(v), // clique suggestion
+                  );
+                },
+              ),
+            ),
+          ),
+
+        // villes récentes
+        if (widget.recents.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8, // hor
+            runSpacing: 8, // vertical
+            children: widget.recents.take(5).map((v) {
+              return ActionChip(
+                label: Text('${v.nom} (${v.pays})'),
+                onPressed: () async => await _choisirVille(v),
+              );
+            }).toList(),
+          ),
+        ],
+      ],
     );
   }
 }
