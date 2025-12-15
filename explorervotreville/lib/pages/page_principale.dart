@@ -800,6 +800,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     itemCount: _discoverResults.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
                     itemBuilder: (context, i) {
+                      // lieu proposé par overpass
                       final poi = _discoverResults[i];
                       final dejaAjoute = _lieuDejaAjoute(poi, lieuxVille);
 
