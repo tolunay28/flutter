@@ -15,13 +15,13 @@ class SettingsProvider extends ChangeNotifier {
   VilleResultat? _defaultCity; // dernière ville choisie
   VilleResultat? get defaultCity => _defaultCity;
 
-  final List<VilleResultat> _recentCities = []; // dernières recherches
-  List<VilleResultat> get recentCities => List.unmodifiable(_recentCities);
+  final List<VilleResultat> _favoriteCities = []; // dernières recherches
+  List<VilleResultat> get favoriteCities => List.unmodifiable(_favoriteCities);
 
   // Clés SharedPreferences
   static const _kDarkMode = 'darkMode';
   static const _kDefaultCity = 'defaultCity'; // JSON ville
-  static const _kRecentCities = 'recentCities'; // JSON list
+  static const _kFavoriteCities = 'recentCities'; // JSON list
 
   // À appeler au démarrage (dans main) pour charger les prefs
   Future<void> init() async {
@@ -35,10 +35,10 @@ class SettingsProvider extends ChangeNotifier {
     _defaultCity = defaultJson == null ? null : _villeFromJson(defaultJson);
 
     // dernières villes
-    final recentList = prefs.getStringList(_kRecentCities) ?? [];
-    _recentCities
+    final favList = prefs.getStringList(_kFavoriteCities) ?? [];
+    _favoriteCities
       ..clear()
-      ..addAll(recentList.map(_villeFromJson).whereType<VilleResultat>());
+      ..addAll(favList.map(_villeFromJson).whereType<VilleResultat>());
 
     notifyListeners();
   }
@@ -61,8 +61,8 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDefaultCity, _villeToJson(ville));
     await prefs.setStringList(
-      _kRecentCities,
-      _recentCities.map(_villeToJson).toList(),
+      _kFavoriteCities,
+      _favoriteCities.map(_villeToJson).toList(),
     );
   }
 
@@ -73,18 +73,18 @@ class SettingsProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
-      _kRecentCities,
-      _recentCities.map(_villeToJson).toList(),
+      _kFavoriteCities,
+      _favoriteCities.map(_villeToJson).toList(),
     );
   }
 
   // Vide l’historique
   Future<void> clearRecentCities() async {
-    _recentCities.clear();
+    _favoriteCities.clear();
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kRecentCities);
+    await prefs.remove(_kFavoriteCities);
   }
 
   //  Helpers JSON
@@ -115,13 +115,55 @@ class SettingsProvider extends ChangeNotifier {
 
   // Met la ville en tête, supprime doublon, limite taille
   void _pushRecent(VilleResultat ville) {
-    _recentCities.removeWhere((v) => v.cle == ville.cle);
-    _recentCities.insert(0, ville);
+    _favoriteCities.removeWhere((v) => v.cle == ville.cle);
+    _favoriteCities.insert(0, ville);
 
     const max = 5;
     // supprime entre max et .length
-    if (_recentCities.length > max) {
-      _recentCities.removeRange(max, _recentCities.length);
+    if (_favoriteCities.length > max) {
+      _favoriteCities.removeRange(max, _favoriteCities.length);
     }
+  }
+
+  bool isFavoriteCity(VilleResultat ville) {
+    return _favoriteCities.any((v) => v.cle == ville.cle);
+  }
+
+  Future<void> addFavoriteCity(VilleResultat ville) async {
+    // évite doublon + met en tête
+    _favoriteCities.removeWhere((v) => v.cle == ville.cle);
+    _favoriteCities.insert(0, ville);
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _kFavoriteCities,
+      _favoriteCities.map(_villeToJson).toList(),
+    );
+  }
+
+  Future<void> removeFavoriteCity(VilleResultat ville) async {
+    _favoriteCities.removeWhere((v) => v.cle == ville.cle);
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _kFavoriteCities,
+      _favoriteCities.map(_villeToJson).toList(),
+    );
+  }
+
+  /// Remplace toute la liste d'un coup (pratique pour la page Favoris)
+  Future<void> setFavoriteCities(List<VilleResultat> villes) async {
+    _favoriteCities
+      ..clear()
+      ..addAll(villes);
+    notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      _kFavoriteCities,
+      _favoriteCities.map(_villeToJson).toList(),
+    );
   }
 }

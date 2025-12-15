@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import '../db/lieu_repository.dart';
 import '../models/lieu.dart';
-import '../repositories/lieu_repository.dart';
 
 class LieuxProvider extends ChangeNotifier {
   final _repo = LieuRepository();

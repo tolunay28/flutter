@@ -14,7 +14,7 @@ class PageAccueil extends StatelessWidget {
           cs.surfaceContainerHighest, // ou cs.surface si tu veux plus clair
       body: Stack(
         children: [
-          // ANIMATION DE FOND PLEIN ÉCRAN
+          // animation fond d'écran
           Positioned.fill(
             // utiliser dans stack pour dire au widget de prendre toute la place dispo dans le parent (ici tout l'écran)
             child: Lottie.asset(
@@ -25,7 +25,7 @@ class PageAccueil extends StatelessWidget {
             ),
           ),
 
-          // CONTENU PAR-DESSUS (protégé par SafeArea)
+          // contenu par dessus (protégé par SafeArea)
           SafeArea(
             // padding automatique pour eviter que les textes/image ... soit pas cachés
             child: Center(

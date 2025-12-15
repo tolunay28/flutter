@@ -541,7 +541,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     final cs = Theme.of(context).colorScheme;
     final ville = _villeSelectionnee;
     final lieuxVille = _lieuxPourVilleSelectionnee;
-    final recents = context.watch<SettingsProvider>().recentCities;
+    final recents = context.watch<SettingsProvider>().favoriteCities;
 
     return Scaffold(
       appBar: AppBar(title: const Text('ExplorezVotreVille')),
@@ -565,6 +565,15 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   await context.read<SettingsProvider>().toggleDarkMode(value);
                 },
                 secondary: const Icon(Icons.dark_mode),
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.star),
+                title: const Text('Villes favorites'),
+                onTap: () {
+                  Navigator.pop(context); // ferme le drawer
+                  Navigator.pushNamed(context, '/page_villes_favorites');
+                },
               ),
             ],
           ),

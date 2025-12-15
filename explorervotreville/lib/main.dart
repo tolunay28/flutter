@@ -1,5 +1,6 @@
 import 'package:explorervotreville/pages/page_detail.dart';
 import 'package:explorervotreville/pages/page_selection_position.dart';
+import 'package:explorervotreville/pages/page_villes_favorites.dart';
 import 'package:explorervotreville/providers/lieux_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
@@ -49,6 +50,7 @@ class ExplorezVotreVilleApp extends StatelessWidget {
         // uniquement les pages statiques (sans parametres)
         '/': (_) => const PageAccueil(),
         '/page_principale': (_) => const PagePrincipale(),
+        '/page_villes_favorites': (_) => const PageVillesFavorites(),
       },
 
       onGenerateRoute: (settingsRoute) {

@@ -5,10 +5,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
+import '../db/commentaire_repository.dart';
 import '../models/commentaire.dart';
 import '../models/lieu.dart';
 import '../providers/lieux_provider.dart';
-import '../repositories/commentaire_repository.dart';
 
 class PageDetail extends StatefulWidget {
   final Lieu lieu;

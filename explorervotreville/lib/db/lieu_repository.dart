@@ -1,5 +1,5 @@
 import '../models/lieu.dart';
-import '../services/app_database.dart';
+import 'app_database.dart';
 
 class LieuRepository {
   Future<List<Lieu>> getLieuxPourVille(String cleVille) async {

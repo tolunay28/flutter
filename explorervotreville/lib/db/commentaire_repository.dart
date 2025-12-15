@@ -1,5 +1,5 @@
 import '../models/commentaire.dart';
-import '../services/app_database.dart';
+import 'app_database.dart';
 
 class CommentaireRepository {
   Future<List<Commentaire>> getByLieuId(int lieuId) async {
