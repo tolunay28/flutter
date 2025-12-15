@@ -28,6 +28,31 @@ class LieuRepository {
     );
   }
 
+  Future<bool> existeDejaLieu({
+    required String cleVille,
+    required String titre,
+    double? latitude,
+    double? longitude,
+  }) async {
+    final db = await AppDatabase.database;
+
+    final result = await db.query(
+      'lieux',
+      where: '''
+      cleVille = ?
+      AND LOWER(titre) = LOWER(?)
+      AND (
+        (latitude IS NULL AND longitude IS NULL)
+        OR (latitude = ? AND longitude = ?)
+      )
+    ''',
+      whereArgs: [cleVille, titre, latitude, longitude],
+      limit: 1,
+    );
+
+    return result.isNotEmpty;
+  }
+
   Future<void> deleteLieu(int id) async {
     final db = await AppDatabase.database;
     await db.delete('lieux', where: 'id = ?', whereArgs: [id]);

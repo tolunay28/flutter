@@ -17,11 +17,26 @@ class LieuxProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> ajouterLieu(Lieu lieu) async {
+  Future<bool> ajouterLieu(Lieu lieu) async {
+    final existe = await _repo.existeDejaLieu(
+      cleVille: lieu.cleVille,
+      titre: lieu.titre,
+      latitude: lieu.latitude,
+      longitude: lieu.longitude,
+    );
+
+    if (existe) {
+      print('Lieu déjà existant : ${lieu.titre}');
+      return false;
+    }
+
     final saved = await _repo.insertLieu(lieu);
-    final list = _cache[lieu.cleVille] ?? [];
-    _cache[lieu.cleVille] = [...list, saved];
+    // permet d'initialiser une liste pour la ville si elle n'existe pas
+    _cache.putIfAbsent(lieu.cleVille, () => []);
+    _cache[lieu.cleVille]!.add(saved);
+
     notifyListeners();
+    return true;
   }
 
   Future<void> mettreAJourLieu(Lieu lieu) async {

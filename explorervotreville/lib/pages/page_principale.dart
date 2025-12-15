@@ -1,4 +1,5 @@
 import 'package:explorervotreville/providers/lieux_provider.dart';
+import 'package:explorervotreville/services/overpass_api.dart';
 import 'package:explorervotreville/services/wikimedia_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -64,6 +65,13 @@ class _PagePrincipaleState extends State<PagePrincipale> {
     'Point de vue',
     'Autre',
   ];
+
+  final _overpass = OverpassApi();
+  LatLng? _discoverCenter;
+  String _discoverCategorie = _categories.first;
+  int _discoverRadius = 1500;
+  bool _loadingDiscover = false;
+  List<Lieu> _discoverResults = [];
 
   @override
   void initState() {
@@ -565,8 +573,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: [
               // Champ de saisie ville
               TextField(
@@ -685,13 +692,19 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                                     lieu.longitude!,
                                   ),
                                   child: GestureDetector(
-                                    onTap: () {
-                                      Navigator.pushNamed(
+                                    onTap: () async {
+                                      final res = await Navigator.pushNamed(
                                         context,
                                         '/page_detail',
                                         arguments: lieu,
                                       );
+                                      if (res is Lieu) {
+                                        await context
+                                            .read<LieuxProvider>()
+                                            .mettreAJourLieu(res);
+                                      }
                                     },
+
                                     child: const Icon(
                                       Icons.place,
                                       size: 34,
@@ -766,6 +779,194 @@ class _PagePrincipaleState extends State<PagePrincipale> {
 
               const SizedBox(height: 16),
 
+              if (ville != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Ajouter un lieu grâce à une catégorie',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        initialValue: _discoverCategorie,
+                        items: _categories
+                            .map(
+                              (c) => DropdownMenuItem(value: c, child: Text(c)),
+                            )
+                            .toList(),
+                        onChanged: (v) => setState(
+                          () => _discoverCategorie = v ?? _categories.first,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Catégorie',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.map),
+                      label: const Text('Localisation'),
+                      onPressed: () async {
+                        final base =
+                            _discoverCenter ??
+                            LatLng(
+                              ville.lat,
+                              ville.lon,
+                            ); // défaut: centre ville
+                        final picked = await Navigator.pushNamed(
+                          context,
+                          '/page_selection_position',
+                          arguments: base,
+                        );
+                        if (picked is LatLng) {
+                          setState(() => _discoverCenter = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                if (_discoverCenter != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: InputChip(
+                      avatar: const Icon(Icons.my_location, size: 18),
+                      label: Text(
+                        '📍 Localisation choisie : ${(_discoverCenter!)}',
+                      ),
+                      onDeleted: () => setState(() => _discoverCenter = null),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        min: 500,
+                        max: 5000,
+                        divisions: 9,
+                        value: _discoverRadius.toDouble(),
+                        label: '${_discoverRadius}m',
+                        onChanged: (v) =>
+                            setState(() => _discoverRadius = v.round()),
+                      ),
+                    ),
+                    FilledButton.icon(
+                      icon: _loadingDiscover
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.search),
+                      label: const Text('Rechercher'),
+                      onPressed: _loadingDiscover
+                          ? null
+                          : () async {
+                              final center =
+                                  _discoverCenter ??
+                                  LatLng(ville.lat, ville.lon);
+                              setState(() => _loadingDiscover = true);
+                              try {
+                                final res = await _overpass
+                                    .rechercherLieuxAutour(
+                                      center: center,
+                                      radiusMeters: _discoverRadius,
+                                      categorie: _discoverCategorie,
+                                      cleVille: ville.cle,
+                                    );
+                                if (!mounted) return;
+                                setState(() {
+                                  _discoverResults = res;
+                                  _loadingDiscover = false;
+                                });
+                              } catch (e) {
+                                if (!mounted) return;
+                                setState(() => _loadingDiscover = false);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Erreur Overpass : $e'),
+                                  ),
+                                );
+                              }
+                            },
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
+
+                if (_discoverResults.isNotEmpty)
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _discoverResults.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) {
+                      final poi = _discoverResults[i];
+                      return Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.place_outlined),
+                          title: Text(poi.titre),
+                          subtitle: Text(poi.adresse ?? 'Adresse inconnue'),
+                          trailing: IconButton(
+                            tooltip: 'Ajouter aux lieux enregistrés',
+                            icon: const Icon(Icons.star_border),
+                            onPressed: () async {
+                              final imageUrl = await _wikimediaApi
+                                  .chercherImagePourLieu(poi.titre);
+
+                              // Créer un lieu pour récuperer une image
+                              final lieuAvecImage = Lieu(
+                                titre: poi.titre,
+                                categorie: poi.categorie,
+                                cleVille: poi.cleVille,
+                                adresse: poi.adresse,
+                                latitude: poi.latitude,
+                                longitude: poi.longitude,
+                                description: poi.description,
+                                imageUrl: imageUrl, //  automatique
+                              );
+
+                              final ok = await context
+                                  .read<LieuxProvider>()
+                                  .ajouterLieu(lieuAvecImage);
+
+                              if (!context.mounted) return;
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok
+                                        ? 'Lieu ajouté aux favoris'
+                                        : 'Ce lieu est déjà enregistré',
+                                  ),
+                                ),
+                              );
+
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Lieu ajouté aux favoris'),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ] else
+                const Text('Aucun résultat pour l’instant.'),
+
+              const SizedBox(height: 16),
+
               Text(
                 ville == null
                     ? 'Aucune ville sélectionnée'
@@ -777,47 +978,45 @@ class _PagePrincipaleState extends State<PagePrincipale> {
               const SizedBox(height: 8),
 
               // Liste des lieux
-              Expanded(
-                child: ville == null
-                    ? const Center(
-                        child: Text('Recherchez une ville pour commencer.'),
-                      )
-                    : lieuxVille.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Aucun lieu enregistré pour cette ville.\nAjoutez-en avec le bouton +',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      )
-                    : GridView.builder(
-                        padding: EdgeInsets.zero,
-                        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 320, // largeur max d’une carte
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio:
-                              0.75, // ajuste la forme (plus ou moins haute)
-                        ),
-                        itemCount: lieuxVille.length,
-                        itemBuilder: (context, index) {
-                          final lieu = lieuxVille[index];
-                          return TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.95, end: 1),
-                            duration: Duration(
-                              milliseconds: 250 + index * 40,
-                            ), // ajoute 40 ms pour chaque lieu a l'affichage
-                            builder: (context, valeur, child) {
-                              return Transform.scale(
-                                scale: valeur,
-                                child: child,
-                              );
-                            },
-                            child: _LieuCard(lieu: lieu),
-                          );
-                        },
-                      ),
-              ),
+              if (ville == null)
+                const Center(
+                  child: Text('Recherchez une ville pour commencer.'),
+                )
+              else if (lieuxVille.isEmpty)
+                Center(
+                  child: Text(
+                    'Aucun lieu enregistré pour cette ville.\nAjoutez-en avec le bouton +',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                )
+              else
+                GridView.builder(
+                  shrinkWrap: true, // prend la taille nécessaire
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: EdgeInsets.zero,
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 320, // largeur max d’une carte
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio:
+                        0.75, // ajuste la forme (plus ou moins haute)
+                  ),
+                  itemCount: lieuxVille.length,
+                  itemBuilder: (context, index) {
+                    final lieu = lieuxVille[index];
+                    return TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.95, end: 1),
+                      duration: Duration(
+                        milliseconds: 250 + index * 40,
+                      ), // ajoute 40 ms pour chaque lieu a l'affichage
+                      builder: (context, valeur, child) {
+                        return Transform.scale(scale: valeur, child: child);
+                      },
+                      child: _LieuCard(lieu: lieu),
+                    );
+                  },
+                ),
             ],
           ),
         ),
