@@ -36,7 +36,7 @@ class OverpassApi {
     final k = tag.keys.first;
     final v = tag.values.first;
 
-    // Overpass query: nodes + ways + relations autour d’un point
+    // Overpass query: nodes + ways + relations = villes/quartier autour d’un point
     final query =
         '''
 [out:json][timeout:25];
@@ -45,8 +45,8 @@ class OverpassApi {
   way["$k"="$v"](around:$radiusMeters,${center.latitude},${center.longitude});
   relation["$k"="$v"](around:$radiusMeters,${center.latitude},${center.longitude});
 );
-out center 40;
-''';
+out center 40; 
+'''; // calcul automatique centre géographique de way et/ou rel
 
     final uri = Uri.parse('https://overpass-api.de/api/interpreter');
 
@@ -80,6 +80,7 @@ out center 40;
       double? lon = (el['lon'] as num?)?.toDouble();
 
       final centerMap = el['center'] as Map<String, dynamic>?;
+      // assigne une valeur que si lat = null
       lat ??= (centerMap?['lat'] as num?)?.toDouble();
       lon ??= (centerMap?['lon'] as num?)?.toDouble();
 

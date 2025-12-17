@@ -54,6 +54,7 @@ class WikimediaApi {
     final pages =
         (imageData['query'] as Map<String, dynamic>?)?['pages']
             as Map<String, dynamic>?;
+    // query contient les pages
 
     if (pages == null) return null;
 

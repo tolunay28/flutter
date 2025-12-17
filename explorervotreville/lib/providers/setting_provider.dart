@@ -44,6 +44,7 @@ class SettingsProvider extends ChangeNotifier {
       ..clear()
       ..addAll(favList.map(_villeFromJson).whereType<VilleResultat>());
 
+    // villes historiques
     final recentList = prefs.getStringList(_kRecentCities) ?? [];
     _recentCities
       ..clear()

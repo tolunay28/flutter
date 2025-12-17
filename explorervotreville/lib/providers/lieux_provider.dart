@@ -26,7 +26,7 @@ class LieuxProvider extends ChangeNotifier {
     );
 
     if (existe) {
-      print('Lieu déjà existant : ${lieu.titre}');
+      debugPrint('Lieu déjà existant : ${lieu.titre}');
       return false;
     }
 

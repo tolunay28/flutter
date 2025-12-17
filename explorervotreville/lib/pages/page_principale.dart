@@ -270,6 +270,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                       ),
                       const SizedBox(height: 8),
 
+                      //image
                       Row(
                         children: [
                           Expanded(
@@ -619,6 +620,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                               if (_loadingMeteo)
                                 const Padding(
                                   padding: EdgeInsets.only(top: 4),
+                                  // animation de chargement
                                   child: LinearProgressIndicator(minHeight: 3),
                                 )
                               else if (_meteo != null)
@@ -718,6 +720,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.centerLeft,
+                    // comme une pastille
                     child: InputChip(
                       avatar: const Icon(Icons.my_location, size: 18),
                       label: Text(
@@ -736,7 +739,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                         min: 500,
                         max: 5000,
                         divisions: 9,
-                        value: _discoverRadius.toDouble(),
+                        value: _discoverRadius.toDouble(), // init à 1500
                         label: '${_discoverRadius}m',
                         onChanged: (v) =>
                             setState(() => _discoverRadius = v.round()),
@@ -752,7 +755,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                           : const Icon(Icons.search),
                       label: const Text('Rechercher'),
                       onPressed: _loadingDiscover
-                          ? null
+                          ? null // si 1 recherche a été déjà faite
                           : () async {
                               final center =
                                   _discoverCenter ??
@@ -809,6 +812,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                           leading: const Icon(Icons.place_outlined),
                           title: Text(poi.titre),
                           subtitle: Text(poi.adresse ?? 'Adresse inconnue'),
+                          // partie droite d'un listile
                           trailing: IconButton(
                             tooltip: dejaAjoute
                                 ? 'Lieu déjà ajouté'
@@ -907,6 +911,7 @@ class _PagePrincipaleState extends State<PagePrincipale> {
                     itemCount: lieuxVille.length,
                     itemBuilder: (context, index) {
                       final lieu = lieuxVille[index];
+                      // on affiche la card avec un effet de zoom
                       return TweenAnimationBuilder<double>(
                         tween: Tween(begin: 0.95, end: 1),
                         duration: Duration(
@@ -1140,6 +1145,7 @@ class _VilleSearchBoxState extends State<_VilleSearchBox> {
         // villes récentes
         if (widget.recents.isNotEmpty) ...[
           const SizedBox(height: 8),
+          // s'adapte contrairement a un row
           Wrap(
             spacing: 8, // hor
             runSpacing: 8, // vertical
